@@ -1,0 +1,11 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "commissionAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "currentLat" DOUBLE PRECISION,
+ADD COLUMN     "currentLng" DOUBLE PRECISION,
+ADD COLUMN     "destLat" DOUBLE PRECISION,
+ADD COLUMN     "destLng" DOUBLE PRECISION,
+ADD COLUMN     "originLat" DOUBLE PRECISION,
+ADD COLUMN     "originLng" DOUBLE PRECISION,
+ADD COLUMN     "paymentId" TEXT,
+ADD COLUMN     "paymentOrderId" TEXT,
+ADD COLUMN     "paymentStatus" TEXT NOT NULL DEFAULT 'pending';

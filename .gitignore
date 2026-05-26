@@ -1,0 +1,34 @@
+# Dependencies
+**/node_modules/
+**/.pnp
+**/.pnp.*
+**/.yarn/*
+
+# Build/Dist outputs
+**/dist/
+**/.next/
+**/out/
+**/build/
+**/*.tsbuildinfo
+
+# Environment variables, credentials, & secrets
+**/.env
+**/.env*.local
+**/*.pem
+**/*.key
+CREDENTIALS.md
+credentials.md
+project detail.txt
+project_detail.txt
+
+# Debug & OS files
+.DS_Store
+Thumbs.db
+**/npm-debug.log*
+**/yarn-error.log*
+**/test-report.json
+
+# Local configurations & logs
+.vscode/
+.idea/
+*.log

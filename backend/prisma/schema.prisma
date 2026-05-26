@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String         @id @default(uuid())
+  name           String
+  email          String         @unique
+  password       String?
+  role           String         @default("consumer") // "consumer", "manufacturer", "admin"
+  avatar         String?
+  pincode        String?
+  city           String?
+  phone          String?
+  
+  // Manufacturer specific
+  companyName    String?
+  category       String[]
+  certifications String[]
+  rating         Float          @default(0)
+  totalOrders    Int            @default(0)
+  revenue        Float          @default(0)
+  verified       Boolean        @default(false)
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  interests      Interest[]
+  bids           Bid[]
+  subscriptions  Subscription[] @relation("ConsumerSubscriptions")
+  mfgSubscriptions Subscription[] @relation("ManufacturerSubscriptions")
+  campaigns      Campaign[]
+  orders         Order[]        @relation("ManufacturerOrders")
+  consumerOrders Order[]        @relation("ConsumerOrders")
+  productProposals ProductProposal[]
+}
+
+model Product {
+  id              String         @id @default(uuid())
+  name            String
+  description     String
+  category        String
+  image           String
+  retailPrice     Float
+  amazonPrice     Float?
+  flipkartPrice   Float?
+  demandCount     Int            @default(0)
+  demandThreshold Int
+  unit            String
+  tags            String[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  interests       Interest[]
+  demandPools     DemandPool[]
+  subscriptions   Subscription[]
+  orders          Order[]
+  flashEvents     FlashEvent[]
+}
+
+model Interest {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Int
+  maxPrice   Float
+  timeline   String   // 'urgent' | '1week' | '2weeks' | '1month'
+  status     String   // 'pending' | 'threshold_met' | 'auction_active' | 'fulfilled' | 'cancelled'
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model DemandPool {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  totalDemand     Int
+  threshold       Int
+  geography       String
+  pincode         String
+  deadline        DateTime
+  status          String   // 'aggregating' | 'threshold_met' | 'auction_active' | 'closed' | 'fulfilled'
+  averageMaxPrice Float    @default(0)
+  bidsCount       Int      @default(0)
+  bestBidPrice    Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bids            Bid[]
+}
+
+model Bid {
+  id                    String     @id @default(uuid())
+  manufacturerId        String
+  manufacturer          User       @relation(fields: [manufacturerId], references: [id])
+  demandPoolId          String
+  demandPool            DemandPool @relation(fields: [demandPoolId], references: [id])
+  pricePerUnit          Float
+  deliveryTimeline      String
+  qualityCertifications String[]
+  status                String     // 'submitted' | 'leading' | 'outbid' | 'won' | 'lost'
+  submittedAt           DateTime   @default(now())
+}
+
+model Subscription {
+  id                  String   @id @default(uuid())
+  userId              String
+  user                User     @relation("ConsumerSubscriptions", fields: [userId], references: [id])
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id])
+  manufacturerId      String
+  manufacturer        User     @relation("ManufacturerSubscriptions", fields: [manufacturerId], references: [id])
+  monthlyQuantity     Int
+  pricePerMonth       Float
+  retailPricePerMonth Float
+  status              String   // 'active' | 'paused' | 'cancelled'
+  startDate           DateTime
+  nextDelivery        DateTime
+  deliveriesCompleted Int      @default(0)
+  totalDeliveries     Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Order {
+  id                String    @id @default(uuid())
+  consumerId        String
+  consumer          User      @relation("ConsumerOrders", fields: [consumerId], references: [id])
+  productId         String
+  product           Product   @relation(fields: [productId], references: [id])
+  manufacturerId    String
+  manufacturer      User      @relation("ManufacturerOrders", fields: [manufacturerId], references: [id])
+  demandPoolId      String?
+  quantity          Int
+  totalPrice        Float
+  pricePerUnit      Float     @default(0)
+  commissionAmount  Float     @default(0)
+  status            String    // 'pending_payment' | 'confirmed' | 'manufacturing' | 'shipped' | 'delivered'
+  trackingId        String?
+  estimatedDelivery DateTime
+  orderedAt         DateTime  @default(now())
+  deliveredAt       DateTime?
+  // GPS tracking
+  currentLat        Float?
+  currentLng        Float?
+  originLat         Float?
+  originLng         Float?
+  destLat           Float?
+  destLng           Float?
+  // Payment
+  paymentMethod     String    @default("cod") // 'cod' | 'razorpay'
+  paymentStatus     String    @default("pending") // 'pending' | 'paid' | 'refunded'
+  paymentId         String?   // Razorpay payment ID
+  paymentOrderId    String?   // Razorpay order ID
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model FlashEvent {
+  id             String   @id @default(uuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  targetUnits    Int
+  currentUnits   Int      @default(0)
+  pricePerUnit   Float
+  retailPrice    Float
+  savingsPercent Float
+  endsAt         DateTime
+  status         String   // 'active' | 'completed' | 'expired'
+  tiers          Json     // Array of { units, price, label }
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Campaign {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  category    String
+  votes       Int      @default(0)
+  totalVotes  Int
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  status      String   // 'voting' | 'approved' | 'in_production' | 'completed'
+  comments    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  type      String   // 'bid_update' | 'threshold_met' | 'auction_closing' | 'auction_closed' | 'delivery_update' | 'general'
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  actionUrl String?
+  createdAt DateTime @default(now())
+}
+
+model PlatformSettings {
+  id                      String   @id @default("default")
+  platformName            String   @default("Demandly")
+  currency                String   @default("INR")
+  region                  String   @default("India")
+  defaultThreshold        Int      @default(300)
+  auctionDurationHours    Int      @default(48)
+  autoCloseNoActivityHrs  Int      @default(72)
+  commissionPercent       Float    @default(5.0)
+  flashEventMinUnits      Int      @default(50)
+  campaignVoteGoal        Int      @default(100)
+  emailNewRegistrations   Boolean  @default(true)
+  emailThresholdMet       Boolean  @default(true)
+  emailDailyDigest        Boolean  @default(true)
+  emailNewDemandPools     Boolean  @default(true)
+  requireEmailVerification Boolean @default(true)
+  twoFactorForAdmins      Boolean  @default(false)
+  autoLockAfterAttempts   Int      @default(5)
+  updatedAt               DateTime @updatedAt
+}
+
+model ProductProposal {
+  id             String   @id @default(uuid())
+  manufacturerId String
+  manufacturer   User     @relation(fields: [manufacturerId], references: [id])
+  name           String
+  description    String
+  category       String
+  image          String?
+  proposedPrice  Float
+  unit           String
+  status         String   @default("pending") // 'pending', 'approved', 'rejected'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

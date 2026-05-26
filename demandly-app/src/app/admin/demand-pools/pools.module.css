@@ -1,0 +1,20 @@
+.page { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.header {}
+.title { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+.subtitle { color: var(--text-secondary); margin-top: 0.25rem; }
+.filters { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.filterBtn { padding: 0.375rem 0.75rem; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-secondary); font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.filterBtn:hover { background: var(--bg-tertiary); }
+.filterActive { background: var(--primary); color: white; border-color: var(--primary); }
+.list { display: flex; flex-direction: column; gap: 1rem; }
+.poolCard { display: flex; flex-direction: column; gap: 1rem; }
+.cardTop { display: flex; justify-content: space-between; align-items: flex-start; }
+.poolInfo { flex: 1; }
+.poolName { font-size: 16px; font-weight: 600; }
+.poolMeta { display: flex; gap: 1rem; font-size: 13px; color: var(--text-secondary); margin-top: 0.25rem; }
+.poolMeta span { display: flex; align-items: center; gap: 0.25rem; }
+.statsRow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+.stat { display: flex; flex-direction: column; gap: 0.125rem; padding: 0.5rem; background: var(--bg-secondary); border-radius: 8px; }
+.statLabel { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; }
+.statValue { font-size: 14px; font-weight: 600; }
+.cardActions { display: flex; gap: 0.5rem; justify-content: flex-end; }

@@ -1,0 +1,80 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+/* Sizes */
+.sm {
+  padding: 2px var(--space-2);
+  font-size: 0.7rem;
+}
+
+.md {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+/* Variants */
+.default {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.primary {
+  background: hsla(252, 85%, 60%, 0.15);
+  color: var(--primary-light);
+}
+
+.secondary {
+  background: hsla(168, 76%, 46%, 0.15);
+  color: var(--secondary-light);
+}
+
+.accent {
+  background: hsla(36, 100%, 60%, 0.15);
+  color: var(--accent-light);
+}
+
+.danger {
+  background: hsla(0, 72%, 56%, 0.15);
+  color: var(--danger-light);
+}
+
+.success {
+  background: hsla(142, 71%, 45%, 0.15);
+  color: var(--success);
+}
+
+.warning {
+  background: hsla(45, 100%, 51%, 0.15);
+  color: var(--warning);
+}
+
+.outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+/* Dot */
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.pulse {
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}

@@ -1,0 +1,180 @@
+/**
+ * Demandly — Full Platform Test Suite
+ * 
+ * Run: npx ts-node tests/test-all.ts
+ * 
+ * Tests all API endpoints, logs results to tests/test-report.json
+ * and prints a summary table to the console.
+ */
+
+import * as fs from 'fs';
+
+const BASE = 'http://localhost:5000/api';
+let token = '';
+let results: { endpoint: string; method: string; status: number; ok: boolean; time: number; error?: string }[] = [];
+
+async function request(method: string, path: string, body?: any, useToken = true): Promise<any> {
+  const url = `${BASE}${path}`;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (useToken && token) headers['Authorization'] = `Bearer ${token}`;
+
+  const start = Date.now();
+  try {
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const time = Date.now() - start;
+    let data: any = null;
+    try { data = await res.json(); } catch { data = null; }
+
+    const result = {
+      endpoint: `${method} ${path}`,
+      method,
+      status: res.status,
+      ok: res.ok,
+      time,
+      error: res.ok ? undefined : (data?.error || `HTTP ${res.status}`),
+    };
+    results.push(result);
+
+    const icon = res.ok ? '✅' : '❌';
+    const timeStr = `${time}ms`.padStart(6);
+    console.log(`  ${icon} ${method.padEnd(6)} ${path.padEnd(45)} ${String(res.status).padEnd(5)} ${timeStr}${result.error ? `  ⚠ ${result.error}` : ''}`);
+
+    return { status: res.status, data, ok: res.ok };
+  } catch (err: any) {
+    const time = Date.now() - start;
+    const result = {
+      endpoint: `${method} ${path}`,
+      method,
+      status: 0,
+      ok: false,
+      time,
+      error: err.message || 'Network error',
+    };
+    results.push(result);
+    console.log(`  ❌ ${method.padEnd(6)} ${path.padEnd(45)} ERR   ${`${time}ms`.padStart(6)}  ⚠ ${result.error}`);
+    return { status: 0, data: null, ok: false };
+  }
+}
+
+async function runTests() {
+  console.log('\n╔══════════════════════════════════════════════════════════════════════╗');
+  console.log('║              DEMANDLY — FULL PLATFORM TEST SUITE                   ║');
+  console.log('╚══════════════════════════════════════════════════════════════════════╝\n');
+
+  // ─── 1. Health Check ───
+  console.log('🏥 HEALTH CHECK');
+  await request('GET', '/../lb-health', null, false);
+
+  // ─── 2. Auth ───
+  console.log('\n🔐 AUTH');
+  const loginRes = await request('POST', '/auth/login', { email: 'admin@demandly.com', password: 'admin123' }, false);
+  if (loginRes.ok) {
+    token = loginRes.data.token;
+    console.log(`     → Token acquired: ${token.slice(0, 20)}...`);
+  } else {
+    console.log('     ⚠ Login failed — subsequent authenticated tests will fail');
+  }
+
+  // ─── 3. Admin Routes ───
+  console.log('\n👑 ADMIN ROUTES');
+  await request('GET', '/admin/stats');
+  await request('GET', '/admin/verifications/pending');
+  await request('GET', '/admin/users');
+  await request('GET', '/admin/demand-pools');
+  await request('GET', '/admin/settings');
+  await request('PUT', '/admin/settings', { commissionPercent: 5.0 });
+
+  // ─── 4. Consumer Routes ───
+  console.log('\n🛒 CONSUMER ROUTES');
+  await request('GET', '/consumer/stats');
+  await request('GET', '/consumer/interests');
+  await request('GET', '/consumer/products');
+  const productsRes = await request('GET', '/consumer/products');
+  let productId = '';
+  if (productsRes.ok && productsRes.data?.length > 0) {
+    productId = productsRes.data[0].id;
+    await request('GET', `/consumer/products/${productId}`);
+  }
+  await request('GET', '/consumer/demand-pools/active');
+  await request('GET', '/consumer/orders');
+  await request('GET', '/consumer/subscriptions');
+  await request('GET', '/consumer/flash-events');
+  await request('GET', '/consumer/campaigns');
+
+  // ─── 5. Manufacturer Routes ───
+  console.log('\n🏭 MANUFACTURER ROUTES');
+  // Login as manufacturer first
+  const mfgLogin = await request('POST', '/auth/login', { email: 'rajesh@keralanaturals.com', password: 'test123' }, false);
+  if (mfgLogin.ok) {
+    token = mfgLogin.data.token;
+    console.log(`     → Manufacturer token acquired`);
+  } else {
+    console.log('     ⚠ Manufacturer has no password — testing with admin token');
+  }
+
+  await request('GET', '/manufacturer/stats');
+  await request('GET', '/manufacturer/bids');
+  await request('GET', '/manufacturer/demand-pools/active');
+  await request('GET', '/manufacturer/demand-pools');
+  await request('GET', '/manufacturer/profile');
+  await request('GET', '/manufacturer/fulfilment');
+  await request('GET', '/manufacturer/analytics');
+
+  // ─── 6. Notification Routes ───
+  console.log('\n🔔 NOTIFICATION ROUTES');
+  // Re-login as admin for notification access
+  const adminRelogin = await request('POST', '/auth/login', { email: 'admin@demandly.com', password: 'admin123' }, false);
+  if (adminRelogin.ok) token = adminRelogin.data.token;
+
+  await request('GET', '/notifications');
+  await request('GET', '/notifications/unread-count');
+
+  // ─── 7. Payment Routes ───
+  console.log('\n💰 PAYMENT ROUTES');
+  await request('GET', '/payment/status/o1');
+
+  // ─── 8. Public Routes ───
+  console.log('\n🌐 PUBLIC ROUTES');
+  await request('GET', '/public/products', null, false);
+  await request('GET', '/public/campaigns', null, false);
+
+  // ─── SUMMARY ───
+  console.log('\n╔══════════════════════════════════════════════════════════════════════╗');
+  console.log('║                          TEST SUMMARY                              ║');
+  console.log('╚══════════════════════════════════════════════════════════════════════╝\n');
+
+  const passed = results.filter(r => r.ok).length;
+  const failed = results.filter(r => !r.ok).length;
+  const total = results.length;
+  const avgTime = Math.round(results.reduce((sum, r) => sum + r.time, 0) / total);
+
+  console.log(`  Total:    ${total} endpoints tested`);
+  console.log(`  Passed:   ${passed} ✅`);
+  console.log(`  Failed:   ${failed} ❌`);
+  console.log(`  Avg Time: ${avgTime}ms`);
+  console.log(`  Score:    ${Math.round((passed / total) * 100)}%\n`);
+
+  if (failed > 0) {
+    console.log('  ─── FAILURES ───');
+    results.filter(r => !r.ok).forEach(r => {
+      console.log(`  ❌ ${r.endpoint} → ${r.error}`);
+    });
+    console.log('');
+  }
+
+  // Write full report
+  const report = {
+    timestamp: new Date().toISOString(),
+    summary: { total, passed, failed, avgTime, score: `${Math.round((passed / total) * 100)}%` },
+    results,
+    failures: results.filter(r => !r.ok),
+  };
+  fs.writeFileSync('tests/test-report.json', JSON.stringify(report, null, 2));
+  console.log(`  📄 Full report saved to: tests/test-report.json\n`);
+}
+
+runTests().catch(console.error);
