@@ -9,14 +9,14 @@ Demandly is a demand-driven eCommerce platform that flips the traditional supply
 
 ```mermaid
 graph TD
-    A[Consumer: "I want this"] -->|Aggregate by Product & Pincode| B(Demand Pool)
-    B -->|Check Threshold| C{Threshold Met?}
+    A["Consumer: 'I want this'"] -->|Aggregate by Product & Pincode| B("Demand Pool")
+    B -->|Check Threshold| C{"Threshold Met?"}
     C -->|No| B
-    C -->|Yes| D[Trigger Reverse Auction]
-    D -->|Notify Manufacturers| E[Manufacturers Bid]
-    E -->|Select Lowest Bid Price| F[Central Resolver]
-    F -->|Generate Orders| G[Individual Consumer Orders]
-    G -->|COD Confirmation| H[Local Manufacturer Fulfilment]
+    C -->|Yes| D["Trigger Reverse Auction"]
+    D -->|Notify Manufacturers| E["Manufacturers Bid"]
+    E -->|Select Lowest Bid Price| F["Central Resolver"]
+    F -->|Generate Orders| G["Individual Consumer Orders"]
+    G -->|COD Confirmation| H["Local Manufacturer Fulfilment"]
 ```
 
 ### 1. Demand Aggregation Engine
