@@ -98,6 +98,37 @@ async function run() {
   if (r.ok) { state.admin = { token: r.data.token, id: r.data.user.id }; pass(`Admin logged in: ${r.data.user.email}`); }
   else fail('Admin login', r.data.error);
 
+  // Test Google SSO Login (First time - Registration Required)
+  const googleEmail = `google-sso-${ts}@test.com`;
+  r = await api('POST', '/auth/google', { credential: `mock-google-token-${googleEmail}` });
+  if (r.ok && r.data.registrationRequired) {
+    pass(`Google SSO (new email) correctly prompts for registration completion`);
+  } else {
+    fail('Google SSO new email registration check', r.data.error || 'Failed');
+  }
+
+  // Test Google SSO Registration (Submit details)
+  r = await api('POST', '/auth/google', {
+    credential: `mock-google-token-${googleEmail}`,
+    role: 'consumer',
+    phone: '9876543213',
+    pincode: '560001',
+    city: 'Bengaluru'
+  });
+  if (r.status === 201 && r.data.user && r.data.token) {
+    pass(`Google SSO successfully registers new account: ${r.data.user.email} (JWT acquired)`);
+  } else {
+    fail('Google SSO registration submit', r.data.error || 'Failed');
+  }
+
+  // Test Google SSO Login (Second time - Login Directly)
+  r = await api('POST', '/auth/google', { credential: `mock-google-token-${googleEmail}` });
+  if (r.status === 200 && r.data.user && r.data.token) {
+    pass(`Google SSO logs in existing user directly: ${r.data.user.email}`);
+  } else {
+    fail('Google SSO existing login', r.data.error || 'Failed');
+  }
+
   // ═══════════════════════════════════════════════════
   section('PHASE 2: Product Proposal (Manufacturer)');
   // ═══════════════════════════════════════════════════
