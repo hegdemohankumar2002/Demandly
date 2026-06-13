@@ -42,6 +42,7 @@
   --bg-elevated: hsl(0, 0%, 98%);
   --bg-hover: hsl(0, 0%, 94%);
   --bg-input: hsl(0, 0%, 100%);
+  --bg-navbar: hsla(60, 100%, 95%, 0.75);
 
   /* Text */
   --text-primary: hsl(0, 0%, 15%);
@@ -391,3 +392,42 @@ ul, ol {
     --text-hero: 1.875rem;
   }
 }
+
+/* ---- Dark Mode Overrides ---- */
+.dark {
+  --primary: hsl(211, 20%, 65%);
+  --primary-light: hsl(211, 20%, 75%);
+  --primary-dark: hsl(211, 20%, 55%);
+  --primary-glow: hsla(211, 20%, 65%, 0.25);
+
+  --secondary: hsl(0, 0%, 80%);
+  --secondary-light: hsl(0, 0%, 90%);
+  --secondary-dark: hsl(0, 0%, 70%);
+
+  --accent: hsl(0, 0%, 80%);
+  --accent-light: hsl(0, 0%, 90%);
+
+  /* Backgrounds */
+  --bg-dark: hsl(210, 14%, 8%);
+  --bg-body: hsl(210, 14%, 10%);
+  --bg-surface: hsl(210, 14%, 14%);
+  --bg-elevated: hsl(210, 14%, 18%);
+  --bg-hover: hsl(210, 14%, 22%);
+  --bg-input: hsl(210, 14%, 16%);
+  --bg-navbar: hsla(210, 14%, 10%, 0.75);
+
+  /* Text */
+  --text-primary: hsl(0, 0%, 95%);
+  --text-secondary: hsl(0, 0%, 82%);
+  --text-tertiary: hsl(0, 0%, 68%);
+  --text-inverse: hsl(210, 14%, 10%);
+
+  /* Borders */
+  --border-subtle: hsla(0, 0%, 100%, 0.04);
+  --border-default: hsla(0, 0%, 100%, 0.08);
+  --border-strong: hsla(0, 0%, 100%, 0.25);
+
+  /* Gradients */
+  --gradient-glass: linear-gradient(135deg, hsla(210, 14%, 14%, 0.8), hsla(210, 14%, 14%, 0.6));
+}
+

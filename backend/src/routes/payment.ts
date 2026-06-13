@@ -25,6 +25,10 @@ router.post('/create-order', verifyAuth, async (req: Request, res: Response): Pr
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
+    if (order.consumerId !== (req as any).user.id) {
+      return res.status(403).json({ error: 'Forbidden: You do not own this order' });
+    }
+
     // Fetch commission rate from platform settings
     const settings = await prisma.platformSettings.upsert({
       where: { id: 'default' },
@@ -95,6 +99,10 @@ router.post('/verify', verifyAuth, async (req: Request, res: Response): Promise<
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
+    if (order.consumerId !== (req as any).user.id) {
+      return res.status(403).json({ error: 'Forbidden: You do not own this order' });
+    }
+
     const isProduction = RAZORPAY_KEY_ID.startsWith('rzp_live');
     let verified = false;
 
@@ -118,6 +126,7 @@ router.post('/verify', verifyAuth, async (req: Request, res: Response): Promise<
     await prisma.order.update({
       where: { id: order.id },
       data: {
+        status: 'confirmed',
         paymentStatus: 'paid',
         paymentId: paymentId || `pay_mock_${crypto.randomBytes(8).toString('hex')}`
       }
@@ -150,13 +159,77 @@ router.get('/status/:orderId', verifyAuth, async (req: Request, res: Response): 
       where: { id: req.params.orderId as string },
       select: {
         id: true, paymentStatus: true, paymentId: true, paymentOrderId: true,
-        totalPrice: true, commissionAmount: true
+        totalPrice: true, commissionAmount: true, consumerId: true
       }
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    if (order.consumerId !== (req as any).user.id) {
+      return res.status(403).json({ error: 'Forbidden: You do not own this order' });
+    }
+
     return res.json(order);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to get payment status' });
+  }
+});
+
+// Razorpay Webhook endpoint
+router.post('/webhook', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const signature = req.headers['x-razorpay-signature'] as string;
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'webhook_secret_placeholder';
+
+    if (!signature) {
+      return res.status(400).json({ error: 'Missing x-razorpay-signature header' });
+    }
+
+    // Verify signature using crypto
+    const shasum = crypto.createHmac('sha256', webhookSecret);
+    shasum.update(JSON.stringify(req.body));
+    const digest = shasum.digest('hex');
+
+    if (digest !== signature) {
+      return res.status(400).json({ error: 'Invalid webhook signature' });
+    }
+
+    const event = req.body.event;
+    if (event === 'payment.captured' || event === 'order.paid') {
+      const payment = req.body.payload.payment.entity;
+      const paymentOrderId = payment.order_id;
+      const paymentId = payment.id;
+
+      const order = await prisma.order.findFirst({
+        where: { paymentOrderId }
+      });
+
+      if (order && order.paymentStatus !== 'paid') {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: 'confirmed',
+            paymentStatus: 'paid',
+            paymentId
+          }
+        });
+
+        // Create notification — this automatically triggers a push notification via our middleware
+        await prisma.notification.create({
+          data: {
+            userId: order.manufacturerId,
+            type: 'general',
+            title: '💰 Payment Received (Webhook)',
+            message: `Payment of ₹${order.totalPrice} confirmed for order ${order.id.slice(0, 8)} via webhook. Proceed with fulfilment.`,
+            actionUrl: '/manufacturer/fulfilment'
+          }
+        });
+      }
+    }
+
+    return res.json({ status: 'ok' });
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    return res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 

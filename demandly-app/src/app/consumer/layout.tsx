@@ -16,8 +16,14 @@ export default function ConsumerLayout({ children }: { children: React.ReactNode
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
+    } else if (user && user.role !== 'consumer') {
+      if (user.role === 'manufacturer') {
+        router.push('/manufacturer/dashboard');
+      } else if (user.role === 'admin') {
+        router.push('/admin/dashboard');
+      }
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   return (
     <div className={styles.layout}>

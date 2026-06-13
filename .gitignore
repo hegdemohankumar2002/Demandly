@@ -32,3 +32,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# Sub-repositories
+Demandly-mobile-main/
+

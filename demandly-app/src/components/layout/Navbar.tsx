@@ -9,15 +9,17 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import { useTheme } from '@/context/ThemeContext';
 import {
   Zap, Bell, User, LogOut, Menu, X,
   LayoutDashboard, ShoppingBag, ChevronDown,
-  CheckCheck, BellOff, ExternalLink,
+  CheckCheck, BellOff, ExternalLink, Sun, Moon,
 } from 'lucide-react';
 
 export default function Navbar() {
   const { user, token, isAuthenticated, logout } = useAuthStore();
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore();
+  const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -162,6 +164,24 @@ export default function Navbar() {
                       <ShoppingBag size={16} />
                       {user.role === 'consumer' ? 'My Orders' : user.role === 'admin' ? 'Settings' : 'My Bids'}
                     </Link>
+                    {user.role !== 'admin' && (
+                      <Link
+                        href={`/${user.role}/profile`}
+                        className={styles.dropdownItem}
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        <User size={16} />
+                        My Profile
+                      </Link>
+                    )}
+                    <button
+                      className={styles.dropdownItem}
+                      onClick={() => { toggleTheme(); setProfileOpen(false); }}
+                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                      {theme === 'dark' ? 'Light Theme' : 'Dark Theme'}
+                    </button>
                     <div className={styles.dropdownDivider} />
                     <button
                       className={cn(styles.dropdownItem, styles.logoutItem)}
@@ -175,7 +195,14 @@ export default function Navbar() {
               </div>
             </>
           ) : (
-            <div className={styles.desktopActions}>
+            <div className={styles.desktopActions} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button 
+                onClick={toggleTheme}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: 'var(--radius-full)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-label="Toggle Theme"
+              >
+                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
               <Link href="/login">
                 <Button variant="ghost" size="sm">Sign In</Button>
               </Link>
@@ -183,6 +210,7 @@ export default function Navbar() {
                 <Button size="sm">Get Started</Button>
               </Link>
             </div>
+
           )}
 
           {/* Mobile Menu Toggle */}

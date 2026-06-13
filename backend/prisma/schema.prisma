@@ -16,6 +16,7 @@ model User {
   pincode        String?
   city           String?
   phone          String?
+  fcmToken       String?
   
   // Manufacturer specific
   companyName    String?
@@ -190,6 +191,7 @@ model Campaign {
   author      User     @relation(fields: [authorId], references: [id])
   status      String   // 'voting' | 'approved' | 'in_production' | 'completed'
   comments    Int      @default(0)
+  voterIds    String[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -239,4 +241,13 @@ model ProductProposal {
   status         String   @default("pending") // 'pending', 'approved', 'rejected'
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model VerificationOtp {
+  id        String   @id @default(uuid())
+  target    String   // Email or phone number
+  code      String   // 6-digit OTP code
+  type      String   // "email" or "phone"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

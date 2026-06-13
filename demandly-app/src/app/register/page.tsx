@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './register.module.css';
 import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import { useAuthStore, demoConsumer, demoManufacturer } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
 import { Zap, Mail, Lock, User, MapPin, Phone, ArrowLeft, ArrowRight, Check } from 'lucide-react';
@@ -27,8 +26,133 @@ export default function RegisterPage() {
     city: ''
   });
 
+  // OTP Verification States
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+  const [emailOtpVerifyLoading, setEmailOtpVerifyLoading] = useState(false);
+
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
+  const [phoneOtpVerifyLoading, setPhoneOtpVerifyLoading] = useState(false);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!formData.email) {
+      addToast({ type: 'error', title: 'Error', message: 'Please enter your email first' });
+      return;
+    }
+    setEmailOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: formData.email, type: 'email' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email OTP');
+
+      setEmailOtpSent(true);
+      addToast({
+        type: 'success',
+        title: 'OTP Sent',
+        message: `An OTP code has been sent to ${formData.email}`,
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Failed to send OTP', message: err.message });
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtpCode || emailOtpCode.length !== 6) {
+      addToast({ type: 'error', title: 'Error', message: 'Please enter a 6-digit code' });
+      return;
+    }
+    setEmailOtpVerifyLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: formData.email, code: emailOtpCode, type: 'email' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Email verification failed');
+
+      setEmailVerified(true);
+      addToast({
+        type: 'success',
+        title: 'Email Verified!',
+        message: 'Your email has been verified successfully.',
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Verification Failed', message: err.message });
+    } finally {
+      setEmailOtpVerifyLoading(false);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    if (!formData.phone) {
+      addToast({ type: 'error', title: 'Error', message: 'Please enter your phone number first' });
+      return;
+    }
+    setPhoneOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: formData.phone, type: 'phone' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send phone OTP');
+
+      setPhoneOtpSent(true);
+      addToast({
+        type: 'success',
+        title: 'OTP Sent',
+        message: `An OTP code has been sent to ${formData.phone}`,
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Failed to send OTP', message: err.message });
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneOtpCode || phoneOtpCode.length !== 6) {
+      addToast({ type: 'error', title: 'Error', message: 'Please enter a 6-digit code' });
+      return;
+    }
+    setPhoneOtpVerifyLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: formData.phone, code: phoneOtpCode, type: 'phone' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Phone verification failed');
+
+      setPhoneVerified(true);
+      addToast({
+        type: 'success',
+        title: 'Phone Verified!',
+        message: 'Your phone number has been verified successfully.',
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Verification Failed', message: err.message });
+    } finally {
+      setPhoneOtpVerifyLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,12 +161,26 @@ export default function RegisterPage() {
       addToast({ type: 'error', title: 'Error', message: 'Please fill in required fields' });
       return;
     }
+    if (!emailVerified) {
+      addToast({ type: 'error', title: 'Verification Required', message: 'Please verify your email first' });
+      return;
+    }
+    if (formData.phone && !phoneVerified) {
+      addToast({ type: 'error', title: 'Verification Required', message: 'Please verify your phone number first' });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, role }),
+        body: JSON.stringify({ 
+          ...formData, 
+          role,
+          emailOtpCode,
+          phoneOtpCode: formData.phone ? phoneOtpCode : undefined
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to register');
@@ -141,20 +279,115 @@ export default function RegisterPage() {
                     <input id="name" type="text" className="input" placeholder="Your full name" style={{ paddingLeft: '42px' }} value={formData.name} onChange={handleInputChange} />
                   </div>
                 </div>
+
                 <div className={styles.field}>
-                  <label htmlFor="email" className="label">Email</label>
-                  <div className={styles.inputWrapper}>
-                    <Mail size={18} className={styles.inputIcon} />
-                    <input id="email" type="email" className="input" placeholder="you@example.com" style={{ paddingLeft: '42px' }} value={formData.email} onChange={handleInputChange} />
+                  <label htmlFor="email" className="label">Email Address</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className={styles.inputWrapper} style={{ flexGrow: 1 }}>
+                      <Mail size={18} className={styles.inputIcon} />
+                      <input id="email" type="email" disabled={emailVerified} className="input" placeholder="you@example.com" style={{ paddingLeft: '42px' }} value={formData.email} onChange={handleInputChange} />
+                    </div>
+                    {!emailVerified ? (
+                      <Button type="button" onClick={handleSendEmailOtp} loading={emailOtpLoading} disabled={!formData.email}>
+                        {emailOtpSent ? 'Resend' : 'Send OTP'}
+                      </Button>
+                    ) : (
+                      <span style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        color: '#10b981',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        padding: '0 12px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                        border: '1px solid #10b981',
+                        borderRadius: '0.375rem'
+                      }}>
+                        <Check size={14} /> Verified
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {emailOtpSent && !emailVerified && (
+                  <div className={styles.field} style={{ marginTop: '8px' }}>
+                    <label htmlFor="emailOtpCode" className="label">Enter Email OTP</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        id="emailOtpCode"
+                        type="text"
+                        maxLength={6}
+                        required
+                        className="input"
+                        placeholder="e.g. 123456"
+                        style={{ letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }}
+                        value={emailOtpCode}
+                        onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
+                      />
+                      <Button type="button" onClick={handleVerifyEmailOtp} loading={emailOtpVerifyLoading} disabled={emailOtpCode.length !== 6}>
+                        Verify
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className={styles.field}>
-                  <label htmlFor="phone" className="label">Phone</label>
-                  <div className={styles.inputWrapper}>
-                    <Phone size={18} className={styles.inputIcon} />
-                    <input id="phone" type="tel" className="input" placeholder="+91 98765 43210" style={{ paddingLeft: '42px' }} value={formData.phone} onChange={handleInputChange} />
+                  <label htmlFor="phone" className="label">Phone Number</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className={styles.inputWrapper} style={{ flexGrow: 1 }}>
+                      <Phone size={18} className={styles.inputIcon} />
+                      <input id="phone" type="tel" disabled={phoneVerified} className="input" placeholder="+91 98765 43210" style={{ paddingLeft: '42px' }} value={formData.phone} onChange={handleInputChange} />
+                    </div>
+                    {formData.phone && (
+                      <>
+                        {!phoneVerified ? (
+                          <Button type="button" onClick={handleSendPhoneOtp} loading={phoneOtpLoading}>
+                            {phoneOtpSent ? 'Resend' : 'Send OTP'}
+                          </Button>
+                        ) : (
+                          <span style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            color: '#10b981',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            padding: '0 12px',
+                            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                            border: '1px solid #10b981',
+                            borderRadius: '0.375rem'
+                          }}>
+                            <Check size={14} /> Verified
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {phoneOtpSent && !phoneVerified && (
+                  <div className={styles.field} style={{ marginTop: '8px' }}>
+                    <label htmlFor="phoneOtpCode" className="label">Enter Phone OTP</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        id="phoneOtpCode"
+                        type="text"
+                        maxLength={6}
+                        required
+                        className="input"
+                        placeholder="e.g. 123456"
+                        style={{ letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }}
+                        value={phoneOtpCode}
+                        onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, ''))}
+                      />
+                      <Button type="button" onClick={handleVerifyPhoneOtp} loading={phoneOtpVerifyLoading} disabled={phoneOtpCode.length !== 6}>
+                        Verify
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className={styles.field}>
                   <label htmlFor="password" className="label">Password</label>
                   <div className={styles.inputWrapper}>
@@ -162,9 +395,10 @@ export default function RegisterPage() {
                     <input id="password" type="password" className="input" placeholder="Create a password" style={{ paddingLeft: '42px' }} value={formData.password} onChange={handleInputChange} />
                   </div>
                 </div>
+
                 <div className={styles.navButtons}>
                   <Button variant="ghost" onClick={() => setStep(1)} icon={<ArrowLeft size={18} />}>Back</Button>
-                  <Button size="lg" onClick={() => setStep(3)} iconRight={<ArrowRight size={18} />}>Continue</Button>
+                  <Button size="lg" onClick={() => setStep(3)} disabled={!emailVerified || (formData.phone !== '' && !phoneVerified)} iconRight={<ArrowRight size={18} />}>Continue</Button>
                 </div>
               </div>
             )}
@@ -186,7 +420,7 @@ export default function RegisterPage() {
                 </div>
                 <div className={styles.navButtons}>
                   <Button variant="ghost" onClick={() => setStep(2)} icon={<ArrowLeft size={18} />}>Back</Button>
-                  <Button type="submit" size="lg" loading={loading} icon={<Zap size={18} />}>Create Account</Button>
+                  <Button type="submit" size="lg" loading={loading} disabled={!emailVerified || (formData.phone !== '' && !phoneVerified)} icon={<Zap size={18} />}>Create Account</Button>
                 </div>
               </div>
             )}

@@ -77,4 +77,25 @@ router.put('/mark-all-read', verifyAuth, async (req: Request, res: Response): Pr
   }
 });
 
+// Register FCM token
+router.post('/register-token', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = (req as any).user.id;
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'token is required' });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { fcmToken: token }
+    });
+
+    return res.json({ success: true, message: 'FCM token registered successfully' });
+  } catch (error) {
+    console.error('Error registering FCM token:', error);
+    return res.status(500).json({ error: 'Failed to register token' });
+  }
+});
+
 export default router;

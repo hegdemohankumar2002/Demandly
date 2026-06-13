@@ -72,7 +72,8 @@ async function run() {
   const ts = Date.now();
   let r = await api('POST', '/auth/register', {
     name: 'Test Mfg Alpha', email: `mfg-alpha-${ts}@test.com`, password: 'test123',
-    role: 'manufacturer', city: 'Bengaluru', pincode: '560001', phone: '9876543210'
+    role: 'manufacturer', city: 'Bengaluru', pincode: '560001', phone: '9876543210',
+    emailOtpCode: '888888', phoneOtpCode: '888888'
   });
   if (r.ok) { state.mfg1 = { token: r.data.token, id: r.data.user.id }; pass(`Manufacturer 1 registered: ${r.data.user.email}`); }
   else fail('Manufacturer 1 registration', r.data.error);
@@ -80,7 +81,8 @@ async function run() {
   // Register Manufacturer 2
   r = await api('POST', '/auth/register', {
     name: 'Test Mfg Beta', email: `mfg-beta-${ts}@test.com`, password: 'test123',
-    role: 'manufacturer', city: 'Mumbai', pincode: '400001', phone: '9876543211'
+    role: 'manufacturer', city: 'Mumbai', pincode: '400001', phone: '9876543211',
+    emailOtpCode: '888888', phoneOtpCode: '888888'
   });
   if (r.ok) { state.mfg2 = { token: r.data.token, id: r.data.user.id }; pass(`Manufacturer 2 registered: ${r.data.user.email}`); }
   else fail('Manufacturer 2 registration', r.data.error);
@@ -88,15 +90,27 @@ async function run() {
   // Register Consumer
   r = await api('POST', '/auth/register', {
     name: 'Test Consumer', email: `consumer-${ts}@test.com`, password: 'test123',
-    role: 'consumer', city: 'Bengaluru', pincode: '560001', phone: '9876543212'
+    role: 'consumer', city: 'Bengaluru', pincode: '560001', phone: '9876543212',
+    emailOtpCode: '888888', phoneOtpCode: '888888'
   });
   if (r.ok) { state.consumer1 = { token: r.data.token, id: r.data.user.id }; pass(`Consumer registered: ${r.data.user.email}`); }
   else fail('Consumer registration', r.data.error);
 
-  // Login as Admin
+  // Login as Admin (Standard Login requires 2-Factor Authentication)
   r = await api('POST', '/auth/login', { email: 'admin@demandly.com', password: 'admin123' });
-  if (r.ok) { state.admin = { token: r.data.token, id: r.data.user.id }; pass(`Admin logged in: ${r.data.user.email}`); }
-  else fail('Admin login', r.data.error);
+  if (r.ok && r.data.twoFactorRequired) {
+    pass(`Admin login initialized: 2FA required (Code sent to ${r.data.target})`);
+    // Verify 2FA OTP Code
+    let rVerify = await api('POST', '/auth/login/verify', { email: 'admin@demandly.com', code: '888888' });
+    if (rVerify.ok) {
+      state.admin = { token: rVerify.data.token, id: rVerify.data.user.id };
+      pass(`Admin 2FA code verified: admin logged in successfully`);
+    } else {
+      fail('Admin 2FA verification failed', rVerify.data.error);
+    }
+  } else {
+    fail('Admin login request failed or did not return twoFactorRequired', r.data.error);
+  }
 
   // Test Google SSO Login (First time - Registration Required)
   const googleEmail = `google-sso-${ts}@test.com`;
@@ -107,7 +121,22 @@ async function run() {
     fail('Google SSO new email registration check', r.data.error || 'Failed');
   }
 
-  // Test Google SSO Registration (Submit details)
+  // Send OTP
+  r = await api('POST', '/auth/send-otp', { target: '9876543213', type: 'phone' });
+  if (r.ok) pass(`Send OTP endpoint works: ${r.data.message}`);
+  else fail('Send OTP endpoint', r.data.error);
+
+  // Verify OTP (Invalid)
+  r = await api('POST', '/auth/verify-otp', { target: '9876543213', code: '000000', type: 'phone' });
+  if (!r.ok && r.status === 400) pass(`Verify OTP correctly rejects invalid code`);
+  else fail('Verify OTP invalid code check', `Expected status 400, got ${r.status}`);
+
+  // Verify OTP (Valid Mock)
+  r = await api('POST', '/auth/verify-otp', { target: '9876543213', code: '888888', type: 'phone' });
+  if (r.ok && r.data.verified) pass(`Verify OTP correctly validates mock code '888888'`);
+  else fail('Verify OTP valid code check', r.data.error);
+
+  // Test Google SSO Registration (Submit details without OTP - should fail)
   r = await api('POST', '/auth/google', {
     credential: `mock-google-token-${googleEmail}`,
     role: 'consumer',
@@ -115,8 +144,23 @@ async function run() {
     pincode: '560001',
     city: 'Bengaluru'
   });
+  if (!r.ok && r.status === 400) {
+    pass(`Google SSO registration rejects missing/invalid OTP code`);
+  } else {
+    fail('Google SSO registration missing OTP check', `Expected status 400, got ${r.status}`);
+  }
+
+  // Test Google SSO Registration (Submit details with valid Mock OTP - should succeed)
+  r = await api('POST', '/auth/google', {
+    credential: `mock-google-token-${googleEmail}`,
+    role: 'consumer',
+    phone: '9876543213',
+    pincode: '560001',
+    city: 'Bengaluru',
+    otpCode: '888888'
+  });
   if (r.status === 201 && r.data.user && r.data.token) {
-    pass(`Google SSO successfully registers new account: ${r.data.user.email} (JWT acquired)`);
+    pass(`Google SSO successfully registers new account with verified phone: ${r.data.user.email} (JWT acquired)`);
   } else {
     fail('Google SSO registration submit', r.data.error || 'Failed');
   }

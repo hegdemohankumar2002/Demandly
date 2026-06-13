@@ -1,10 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { verifyAuth } from '../middlewares/auth';
+import { verifyAuth, requireRole } from '../middlewares/auth';
 import { cacheGet, cacheInvalidate, setAuctionState } from '../cache/redis';
 import { geocodeFromPincode } from '../utils/geocode';
 
 const router = Router();
+
+// Protect all manufacturer routes
+router.use(verifyAuth, requireRole('manufacturer'));
 
 // Get Manufacturer Stats
 router.get('/stats', verifyAuth, async (req: Request, res: Response): Promise<any> => {
@@ -52,23 +55,56 @@ router.get('/stats', verifyAuth, async (req: Request, res: Response): Promise<an
   }
 });
 
-// Get Recent Bids
+// Get Recent Bids (with optional pagination)
 router.get('/bids', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
-    const bids = await prisma.bid.findMany({
-      where: { manufacturerId },
-      include: {
-        demandPool: {
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '10');
+      const skip = (page - 1) * limit;
+
+      const [bids, total] = await Promise.all([
+        prisma.bid.findMany({
+          where: { manufacturerId },
           include: {
-            product: true
+            demandPool: {
+              include: {
+                product: true
+              }
+            }
+          },
+          orderBy: { submittedAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.bid.count({ where: { manufacturerId } })
+      ]);
+
+      return res.json({
+        data: bids,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const bids = await prisma.bid.findMany({
+        where: { manufacturerId },
+        include: {
+          demandPool: {
+            include: {
+              product: true
+            }
           }
-        }
-      },
-      orderBy: { submittedAt: 'desc' },
-      take: 10
-    });
-    return res.json(bids);
+        },
+        orderBy: { submittedAt: 'desc' },
+        take: 10
+      });
+      return res.json(bids);
+    }
   } catch (error) {
     console.error('Error fetching bids:', error);
     return res.status(500).json({ error: 'Failed to fetch bids' });
@@ -93,14 +129,40 @@ router.get('/demand-pools/active', verifyAuth, async (req: Request, res: Respons
   }
 });
 
-// Get All Demand Pools
+// Get All Demand Pools (with optional pagination)
 router.get('/demand-pools', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
-    const pools = await prisma.demandPool.findMany({
-      include: { product: true },
-      orderBy: { deadline: 'asc' },
-    });
-    return res.json(pools);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [pools, total] = await Promise.all([
+        prisma.demandPool.findMany({
+          include: { product: true },
+          orderBy: { deadline: 'asc' },
+          skip,
+          take: limit
+        }),
+        prisma.demandPool.count()
+      ]);
+
+      return res.json({
+        data: pools,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const pools = await prisma.demandPool.findMany({
+        include: { product: true },
+        orderBy: { deadline: 'asc' },
+      });
+      return res.json(pools);
+    }
   } catch (error) {
     console.error('Error fetching demand pools:', error);
     return res.status(500).json({ error: 'Failed to fetch demand pools' });
@@ -139,6 +201,11 @@ router.post('/bids', verifyAuth, async (req: Request, res: Response): Promise<an
 
     if (!demandPoolId || !pricePerUnit) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const mfg = await prisma.user.findUnique({ where: { id: manufacturerId } });
+    if (!mfg || !mfg.verified) {
+      return res.status(403).json({ error: 'Forbidden: Your manufacturer account is pending admin verification.' });
     }
 
     const pool = await prisma.demandPool.findUnique({
@@ -275,16 +342,43 @@ router.put('/profile', verifyAuth, async (req: Request, res: Response): Promise<
 // FULFILMENT
 // ──────────────────────────────────────────────
 
-// Get Manufacturer Orders (Fulfilment)
+// Get Manufacturer Orders (Fulfilment, with optional pagination)
 router.get('/fulfilment', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
-    const orders = await prisma.order.findMany({
-      where: { manufacturerId },
-      include: { product: true },
-      orderBy: { orderedAt: 'desc' }
-    });
-    return res.json(orders);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          where: { manufacturerId },
+          include: { product: true },
+          orderBy: { orderedAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.order.count({ where: { manufacturerId } })
+      ]);
+
+      return res.json({
+        data: orders,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const orders = await prisma.order.findMany({
+        where: { manufacturerId },
+        include: { product: true },
+        orderBy: { orderedAt: 'desc' }
+      });
+      return res.json(orders);
+    }
   } catch (error) {
     console.error('Error fetching fulfilment orders:', error);
     return res.status(500).json({ error: 'Failed to fetch orders' });
@@ -319,6 +413,14 @@ router.put('/fulfilment/:id/status', verifyAuth, async (req: Request, res: Respo
       }
     }
 
+    const originalOrder = await prisma.order.findUnique({
+      where: { id: req.params.id as string }
+    });
+    if (!originalOrder) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const wasAlreadyDelivered = originalOrder.status === 'delivered';
+
     const updated = await prisma.order.update({
       where: { id: req.params.id as string },
       data: {
@@ -328,6 +430,16 @@ router.put('/fulfilment/:id/status', verifyAuth, async (req: Request, res: Respo
         ...geoData
       }
     });
+
+    if (status === 'delivered' && !wasAlreadyDelivered) {
+      await prisma.user.update({
+        where: { id: manufacturerId },
+        data: {
+          totalOrders: { increment: 1 },
+          revenue: { increment: updated.totalPrice }
+        }
+      });
+    }
 
     // Notify the consumer about status change
     const statusMessages: Record<string, string> = {
@@ -459,10 +571,15 @@ router.get('/analytics', verifyAuth, async (req: Request, res: Response): Promis
 router.post('/proposals', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
-    const { name, description, category, proposedPrice, unit } = req.body;
+    const { name, description, category, proposedPrice, unit, image } = req.body;
 
     if (!name || !description || !category || !proposedPrice || !unit) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const mfg = await prisma.user.findUnique({ where: { id: manufacturerId } });
+    if (!mfg || !mfg.verified) {
+      return res.status(403).json({ error: 'Forbidden: Your manufacturer account is pending admin verification.' });
     }
 
     const proposal = await prisma.productProposal.create({
@@ -473,7 +590,7 @@ router.post('/proposals', verifyAuth, async (req: Request, res: Response): Promi
         category,
         proposedPrice: parseFloat(proposedPrice),
         unit,
-        image: 'https://images.unsplash.com/photo-1572635196237-14b3f281501f?q=80&w=500&auto=format&fit=crop' // placeholder
+        image: image || 'https://images.unsplash.com/photo-1572635196237-14b3f281501f?q=80&w=500&auto=format&fit=crop'
       }
     });
 
@@ -484,15 +601,41 @@ router.post('/proposals', verifyAuth, async (req: Request, res: Response): Promi
   }
 });
 
-// Get all proposals for this manufacturer
+// Get all proposals for this manufacturer (with optional pagination)
 router.get('/proposals', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
-    const proposals = await prisma.productProposal.findMany({
-      where: { manufacturerId },
-      orderBy: { createdAt: 'desc' }
-    });
-    return res.json(proposals);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [proposals, total] = await Promise.all([
+        prisma.productProposal.findMany({
+          where: { manufacturerId },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.productProposal.count({ where: { manufacturerId } })
+      ]);
+
+      return res.json({
+        data: proposals,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const proposals = await prisma.productProposal.findMany({
+        where: { manufacturerId },
+        orderBy: { createdAt: 'desc' }
+      });
+      return res.json(proposals);
+    }
   } catch (error) {
     console.error('Error fetching proposals:', error);
     return res.status(500).json({ error: 'Failed to fetch proposals' });
@@ -547,19 +690,49 @@ router.delete('/proposals/:id', verifyAuth, async (req: Request, res: Response):
   }
 });
 
-// Get manufacturer's orders (for order management)
+// Get manufacturer's orders (for order management, with optional pagination)
 router.get('/orders', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
-    const orders = await prisma.order.findMany({
-      where: { manufacturerId },
-      include: { 
-        product: true,
-        consumer: { select: { id: true, name: true, city: true, pincode: true, phone: true } }
-      },
-      orderBy: { orderedAt: 'desc' }
-    });
-    return res.json(orders);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          where: { manufacturerId },
+          include: { 
+            product: true,
+            consumer: { select: { id: true, name: true, city: true, pincode: true, phone: true } }
+          },
+          orderBy: { orderedAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.order.count({ where: { manufacturerId } })
+      ]);
+
+      return res.json({
+        data: orders,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const orders = await prisma.order.findMany({
+        where: { manufacturerId },
+        include: { 
+          product: true,
+          consumer: { select: { id: true, name: true, city: true, pincode: true, phone: true } }
+        },
+        orderBy: { orderedAt: 'desc' }
+      });
+      return res.json(orders);
+    }
   } catch (error) {
     console.error('Error fetching manufacturer orders:', error);
     return res.status(500).json({ error: 'Failed to fetch orders' });

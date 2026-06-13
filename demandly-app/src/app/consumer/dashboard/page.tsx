@@ -240,7 +240,7 @@ export default function ConsumerDashboard() {
                 <div
                   key={notif.id}
                   className={`${styles.notifItem} ${!notif.read ? styles.notifUnread : ''}`}
-                  onClick={() => markAsRead(notif.id)}
+                  onClick={() => markAsRead(notif.id, token || undefined)}
                 >
                   <div className={styles.notifDot} style={{ background: !notif.read ? 'var(--primary)' : 'transparent' }} />
                   <div>

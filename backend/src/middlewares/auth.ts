@@ -19,3 +19,18 @@ export const verifyAuth = (req: Request, res: Response, next: NextFunction): any
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 };
+
+export const requireRole = (roles: string | string[]) => {
+  return (req: Request, res: Response, next: NextFunction): any => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized: No authentication context' });
+    }
+    const allowedRoles = Array.isArray(roles) ? roles : [roles];
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+    }
+    next();
+  };
+};
+

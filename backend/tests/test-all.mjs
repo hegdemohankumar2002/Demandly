@@ -72,15 +72,23 @@ async function runTests() {
   // ─── 2. Auth ───
   console.log('\n🔐 AUTH');
   const loginRes = await request('POST', '/auth/login', { email: 'admin@demandly.com', password: 'admin123' }, false);
-  if (loginRes.ok) {
+  if (loginRes.ok && loginRes.data.twoFactorRequired) {
+    const verifyRes = await request('POST', '/auth/login/verify', { email: 'admin@demandly.com', code: '888888' }, false);
+    if (verifyRes.ok) {
+      token = verifyRes.data.token;
+      console.log(`     → Token acquired: ${token.slice(0, 20)}...`);
+    } else {
+      console.log('     ⚠ 2FA verification failed');
+    }
+  } else if (loginRes.ok && loginRes.data.token) {
     token = loginRes.data.token;
-    console.log(`     → Token acquired: ${token.slice(0, 20)}...`);
+    console.log(`     → Token acquired directly: ${token.slice(0, 20)}...`);
   } else {
     console.log('     ⚠ Login failed — subsequent authenticated tests will fail');
   }
 
-  // Test registration (should fail with duplicate)
-  await request('POST', '/auth/register', { name: 'Test', email: 'test@test.com', password: 'test123', role: 'consumer' }, false);
+  // Test registration with unique email
+  await request('POST', '/auth/register', { name: 'Test User', email: `test-${Date.now()}@demo.com`, password: 'test123', role: 'consumer' }, false);
 
   // ─── 3. Admin Routes ───
   console.log('\n👑 ADMIN ROUTES');
@@ -93,6 +101,13 @@ async function runTests() {
 
   // ─── 4. Consumer Routes ───
   console.log('\n🛒 CONSUMER ROUTES');
+  const consumerLogin = await request('POST', '/auth/login', { email: 'aarav@example.com', password: 'test123' }, false);
+  if (consumerLogin.ok && consumerLogin.data.twoFactorRequired) {
+    const verifyRes = await request('POST', '/auth/login/verify', { email: 'aarav@example.com', code: '888888' }, false);
+    if (verifyRes.ok) token = verifyRes.data.token;
+  } else if (consumerLogin.ok && consumerLogin.data.token) {
+    token = consumerLogin.data.token;
+  }
   await request('GET', '/consumer/stats');
   await request('GET', '/consumer/interests');
   await request('GET', '/consumer/products');
@@ -111,9 +126,17 @@ async function runTests() {
   // ─── 5. Manufacturer Routes (login as manufacturer) ───
   console.log('\n🏭 MANUFACTURER ROUTES');
   const mfgLogin = await request('POST', '/auth/login', { email: 'rajesh@keralanaturals.com', password: 'test123' }, false);
-  if (mfgLogin.ok) {
+  if (mfgLogin.ok && mfgLogin.data.twoFactorRequired) {
+    const verifyRes = await request('POST', '/auth/login/verify', { email: 'rajesh@keralanaturals.com', code: '888888' }, false);
+    if (verifyRes.ok) {
+      token = verifyRes.data.token;
+      console.log('     → Manufacturer token acquired via 2FA');
+    } else {
+      console.log('     ⚠ Manufacturer 2FA verification failed');
+    }
+  } else if (mfgLogin.ok && mfgLogin.data.token) {
     token = mfgLogin.data.token;
-    console.log('     → Manufacturer token acquired');
+    console.log('     → Manufacturer token acquired directly');
   } else {
     console.log('     ⚠ Manufacturer login failed — using admin token');
   }
@@ -129,7 +152,12 @@ async function runTests() {
   // ─── 6. Notification Routes ───
   console.log('\n🔔 NOTIFICATION ROUTES');
   const adminRelogin = await request('POST', '/auth/login', { email: 'admin@demandly.com', password: 'admin123' }, false);
-  if (adminRelogin.ok) token = adminRelogin.data.token;
+  if (adminRelogin.ok && adminRelogin.data.twoFactorRequired) {
+    const verifyRes = await request('POST', '/auth/login/verify', { email: 'admin@demandly.com', code: '888888' }, false);
+    if (verifyRes.ok) token = verifyRes.data.token;
+  } else if (adminRelogin.ok && adminRelogin.data.token) {
+    token = adminRelogin.data.token;
+  }
 
   await request('GET', '/notifications');
   await request('GET', '/notifications/unread-count');
@@ -137,6 +165,13 @@ async function runTests() {
 
   // ─── 7. Payment Routes ───
   console.log('\n💰 PAYMENT ROUTES');
+  const consumerRelogin = await request('POST', '/auth/login', { email: 'aarav@example.com', password: 'test123' }, false);
+  if (consumerRelogin.ok && consumerRelogin.data.twoFactorRequired) {
+    const verifyRes = await request('POST', '/auth/login/verify', { email: 'aarav@example.com', code: '888888' }, false);
+    if (verifyRes.ok) token = verifyRes.data.token;
+  } else if (consumerRelogin.ok && consumerRelogin.data.token) {
+    token = consumerRelogin.data.token;
+  }
   await request('GET', '/payment/status/o1');
   await request('POST', '/payment/create-order', { orderId: 'o1' });
 

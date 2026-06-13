@@ -3,6 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../db';
 import { OAuth2Client } from 'google-auth-library';
+import { sendOtp, verifyOtp } from '../utils/otp';
+import { verifyAuth } from '../middlewares/auth';
+
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
@@ -46,6 +49,7 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+
 router.post('/login', async (req: Request, res: Response): Promise<any> => {
   try {
     const { email, password } = req.body;
@@ -64,10 +68,18 @@ router.post('/login', async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    // Require 2FA (SMS OTP if phone exists, fallback to email OTP)
+    const target = user.phone || user.email;
+    const type = user.phone ? 'phone' : 'email';
+    
+    await sendOtp(target, type);
 
-    const { password: _, ...userWithoutPassword } = user;
-    return res.status(200).json({ user: userWithoutPassword, token });
+    return res.status(200).json({
+      twoFactorRequired: true,
+      email: user.email,
+      target,
+      type
+    });
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ error: 'Failed to login' });
@@ -78,7 +90,7 @@ const googleClient = new OAuth2Client();
 
 router.post('/google', async (req: Request, res: Response): Promise<any> => {
   try {
-    const { credential, role, pincode, city, phone } = req.body;
+    const { credential, role, pincode, city, phone, otpCode } = req.body;
     if (!credential) {
       return res.status(400).json({ error: 'Google credential (ID token) is required' });
     }
@@ -139,6 +151,17 @@ router.post('/google', async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ error: 'Invalid role selected' });
     }
 
+    // Verify phone OTP code before allowing registration completion
+    if (phone) {
+      if (!otpCode) {
+        return res.status(400).json({ error: 'Phone verification code (OTP) is required' });
+      }
+      const isPhoneVerified = await verifyOtp(phone, otpCode, 'phone');
+      if (!isPhoneVerified) {
+        return res.status(400).json({ error: 'Invalid or expired phone verification code' });
+      }
+    }
+
     // Create user record (password is optional/null for Google SSO users)
     const newUser = await prisma.user.create({
       data: {
@@ -161,4 +184,194 @@ router.post('/google', async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+router.post('/send-otp', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { target, type } = req.body;
+    if (!target || !type) {
+      return res.status(400).json({ error: 'Target (email or phone) and type are required' });
+    }
+    if (!['email', 'phone'].includes(type)) {
+      return res.status(400).json({ error: 'Type must be email or phone' });
+    }
+
+    await sendOtp(target, type);
+    return res.status(200).json({ message: `Verification code sent to ${target}` });
+  } catch (error: any) {
+    console.error('Send OTP error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to send verification code' });
+  }
+});
+
+router.post('/verify-otp', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { target, code, type } = req.body;
+    if (!target || !code || !type) {
+      return res.status(400).json({ error: 'Target, code, and type are required' });
+    }
+    if (!['email', 'phone'].includes(type)) {
+      return res.status(400).json({ error: 'Type must be email or phone' });
+    }
+
+    const isValid = await verifyOtp(target, code, type, false);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    return res.status(200).json({ verified: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    return res.status(500).json({ error: 'Failed to verify code' });
+  }
+});
+
+router.post('/login/verify', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and 2FA verification code are required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(400).json({ error: 'User not found' });
+    }
+
+    const target = user.phone || user.email;
+    const type = user.phone ? 'phone' : 'email';
+
+    const isValid = await verifyOtp(target, code, type);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired 2FA code' });
+    }
+
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const { password: _, ...userWithoutPassword } = user;
+    return res.status(200).json({ user: userWithoutPassword, token });
+  } catch (error) {
+    console.error('2FA Verification error:', error);
+    return res.status(500).json({ error: 'Failed to verify 2FA code' });
+  }
+});
+
+// Change Password
+router.post('/change-password', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = (req as any).user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.password) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Incorrect current password' });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword }
+    });
+
+    return res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Forgot Password Request
+router.post('/forgot-password', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+
+    const target = user.phone || user.email;
+    const type = user.phone ? 'phone' : 'email';
+
+    await sendOtp(target, type);
+
+    return res.status(200).json({
+      message: 'Verification code sent',
+      target,
+      type
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ error: 'Failed to request password reset' });
+  }
+});
+
+// Reset Password with OTP
+router.post('/reset-password', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'Email, code, and newPassword are required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const target = user.phone || user.email;
+    const type = user.phone ? 'phone' : 'email';
+
+    const isValid = await verifyOtp(target, code, type);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    return res.status(200).json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Delete Account (Centralized GDPR-style deletion)
+router.delete('/account', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = (req as any).user.id;
+
+    // Delete all child relations first
+    await prisma.$transaction([
+      prisma.notification.deleteMany({ where: { userId } }),
+      prisma.bid.deleteMany({ where: { manufacturerId: userId } }),
+      prisma.order.deleteMany({ where: { OR: [{ consumerId: userId }, { manufacturerId: userId }] } }),
+      prisma.interest.deleteMany({ where: { userId } }),
+      prisma.subscription.deleteMany({ where: { OR: [{ userId: userId }, { manufacturerId: userId }] } }),
+      prisma.campaign.deleteMany({ where: { authorId: userId } }),
+      prisma.productProposal.deleteMany({ where: { manufacturerId: userId } }),
+      prisma.user.delete({ where: { id: userId } })
+    ]);
+
+    return res.status(200).json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    return res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 export default router;
+

@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
 import ProgressRing from '@/components/ui/ProgressRing';
+import Carousel from '@/components/ui/Carousel';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import {
@@ -116,6 +117,19 @@ export default function LandingPage() {
             </span>
           </div>
         </div>
+      </section>
+
+      {/* Hero Promo Carousel */}
+      <section className="container" style={{ marginTop: '2.5rem', marginBottom: '1.5rem', width: '100%', maxWidth: 'var(--max-width)' }}>
+        <Carousel
+          images={[
+            'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1200&auto=format&fit=crop', // Groceries deal
+            'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1200&auto=format&fit=crop', // Essentials clothing deal
+            'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?q=80&w=1200&auto=format&fit=crop'  // Healthcare medicines deal
+          ]}
+          autoplay={true}
+          aspectRatio="21/9"
+        />
       </section>
 
       {/* How It Works */}

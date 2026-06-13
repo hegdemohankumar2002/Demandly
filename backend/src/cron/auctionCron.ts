@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../db';
 import { resolveAuction } from '../utils/auction';
+import { processActiveSubscriptions } from './subscriptionCron';
 
 /**
  * Auction Auto-Close Cron Job
@@ -12,6 +13,12 @@ import { resolveAuction } from '../utils/auction';
  */
 export function startCronJobs() {
   console.log('[CRON] Auction auto-close job scheduled (every 5 minutes)');
+  console.log('[CRON] Subscription manager job scheduled (every 10 minutes)');
+
+  // ── Every 10 minutes: process active subscriptions ──
+  cron.schedule('*/10 * * * *', async () => {
+    await processActiveSubscriptions();
+  });
 
   // ── Every 5 minutes: close expired auctions and failed aggregations ──
   cron.schedule('*/5 * * * *', async () => {

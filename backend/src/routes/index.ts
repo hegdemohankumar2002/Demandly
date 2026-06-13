@@ -6,6 +6,7 @@ import adminRouter from './admin';
 import publicRouter from './public';
 import notificationsRouter from './notifications';
 import paymentRouter from './payment';
+import uploadRouter from './upload';
 // We'll apply apiKeyAuth conditionally or differently if needed, 
 // since auth routes usually shouldn't require an api key if they are public.
 // But for now, we can leave it or remove it. Let's remove the global apiKeyAuth 
@@ -26,5 +27,6 @@ router.use('/admin', adminRouter);
 router.use('/public', publicRouter);
 router.use('/notifications', notificationsRouter);
 router.use('/payment', paymentRouter);
+router.use('/upload', uploadRouter);
 
 export default router;

@@ -7,11 +7,11 @@
   max-width: var(--max-width-lg);
   z-index: 100;
   height: 64px;
-  background: hsla(60, 100%, 95%, 0.75); /* Match bg-body with translucency */
+  background: var(--bg-navbar);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-radius: var(--radius-full);
-  border: 1px solid hsla(0, 0%, 0%, 0.04);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-sm);
 }
 
@@ -263,8 +263,8 @@
   right: -20px;
   width: 380px;
   max-height: 480px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   animation: fadeInDown 0.15s ease;
@@ -279,7 +279,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .notifTitle { font-size: 14px; font-weight: 600; }
@@ -289,7 +289,7 @@
   font-size: 12px; color: var(--primary); cursor: pointer;
   padding: 4px 8px; border-radius: 6px; transition: background 0.15s;
 }
-.markAllBtn:hover { background: var(--bg-secondary); }
+.markAllBtn:hover { background: var(--bg-hover); }
 
 .notifList {
   overflow-y: auto;
@@ -310,9 +310,9 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 .notifItem:last-child { border-bottom: none; }
-.notifItem:hover { background: var(--bg-secondary); }
+.notifItem:hover { background: var(--bg-hover); }
 
-.notifUnread { background: hsla(211, 80%, 55%, 0.04); }
+.notifUnread { background: var(--primary-glow); }
 
 .notifDot {
   width: 8px; height: 8px; border-radius: 50%;

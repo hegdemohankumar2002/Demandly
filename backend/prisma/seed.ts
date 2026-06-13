@@ -350,6 +350,7 @@ async function main() {
     },
     create: {
       id: 'o1',
+      consumerId: 'u1',
       productId: 'p1',
       manufacturerId: 'm1',
       quantity: 50,
@@ -375,6 +376,7 @@ async function main() {
     },
     create: {
       id: 'o2',
+      consumerId: 'u1',
       productId: 'p3',
       manufacturerId: 'm1',
       quantity: 100,
@@ -399,6 +401,7 @@ async function main() {
     },
     create: {
       id: 'o3',
+      consumerId: 'u1',
       productId: 'p4',
       manufacturerId: 'm1',
       quantity: 100,

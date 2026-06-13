@@ -1,18 +1,21 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { verifyAuth } from '../middlewares/auth';
+import { verifyAuth, requireRole } from '../middlewares/auth';
 import { cacheGet } from '../cache/redis';
 import { resolveAuction } from '../utils/auction';
 
 const router = Router();
+
+// Protect all admin routes
+router.use(verifyAuth, requireRole('admin'));
 
 // Get Admin Stats (cached for 60s)
 router.get('/stats', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
     const stats = await cacheGet('admin:stats', 60, async () => {
       const activeConsumers = await prisma.user.count({ where: { role: 'consumer' } });
-      const verifiedManufacturers = await prisma.user.count({ where: { role: 'manufacturer' } });
-      const pendingVerifications = 0;
+      const verifiedManufacturers = await prisma.user.count({ where: { role: 'manufacturer', verified: true } });
+      const pendingVerifications = await prisma.user.count({ where: { role: 'manufacturer', verified: false } });
 
       // Real commission from orders
       const orders = await prisma.order.aggregate({
@@ -39,8 +42,20 @@ router.get('/stats', verifyAuth, async (req: Request, res: Response): Promise<an
 // Get Pending Verifications
 router.get('/verifications/pending', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
-    // Return empty array for now since we don't have a strict verification workflow yet
-    return res.json([]);
+    const pending = await prisma.user.findMany({
+      where: { role: 'manufacturer', verified: false },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        companyName: true,
+        phone: true,
+        city: true,
+        pincode: true,
+        createdAt: true
+      }
+    });
+    return res.json(pending);
   } catch (error) {
     console.error('Error fetching verifications:', error);
     return res.status(500).json({ error: 'Failed to fetch verifications' });
@@ -48,7 +63,7 @@ router.get('/verifications/pending', verifyAuth, async (req: Request, res: Respo
 });
 
 // Approve a Manufacturer
-router.post('/verifications/:id/approve', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+const approveHandler = async (req: Request, res: Response): Promise<any> => {
   try {
     const user = await prisma.user.update({
       where: { id: req.params.id as string },
@@ -59,10 +74,12 @@ router.post('/verifications/:id/approve', verifyAuth, async (req: Request, res: 
     console.error('Error approving manufacturer:', error);
     return res.status(500).json({ error: 'Failed to approve' });
   }
-});
+};
+router.post('/verifications/:id/approve', verifyAuth, approveHandler);
+router.put('/verifications/:id/approve', verifyAuth, approveHandler);
 
 // Reject a Manufacturer
-router.post('/verifications/:id/reject', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+const rejectHandler = async (req: Request, res: Response): Promise<any> => {
   try {
     const user = await prisma.user.update({
       where: { id: req.params.id as string },
@@ -73,34 +90,92 @@ router.post('/verifications/:id/reject', verifyAuth, async (req: Request, res: R
     console.error('Error rejecting manufacturer:', error);
     return res.status(500).json({ error: 'Failed to reject' });
   }
-});
+};
+router.post('/verifications/:id/reject', verifyAuth, rejectHandler);
+router.put('/verifications/:id/reject', verifyAuth, rejectHandler);
 
-// Get All Users
+// Get All Users (with optional pagination)
 router.get('/users', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true, name: true, email: true, role: true, city: true, pincode: true,
-        phone: true, companyName: true, verified: true, createdAt: true,
-        _count: { select: { interests: true, bids: true, campaigns: true } }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-    return res.json(users);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          select: {
+            id: true, name: true, email: true, role: true, city: true, pincode: true,
+            phone: true, companyName: true, verified: true, createdAt: true,
+            _count: { select: { interests: true, bids: true, campaigns: true } }
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.user.count()
+      ]);
+
+      return res.json({
+        data: users,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const users = await prisma.user.findMany({
+        select: {
+          id: true, name: true, email: true, role: true, city: true, pincode: true,
+          phone: true, companyName: true, verified: true, createdAt: true,
+          _count: { select: { interests: true, bids: true, campaigns: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      return res.json(users);
+    }
   } catch (error) {
     console.error('Error fetching users:', error);
     return res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
-// Get All Demand Pools (admin view)
+// Get All Demand Pools (admin view, with optional pagination)
 router.get('/demand-pools', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
-    const pools = await prisma.demandPool.findMany({
-      include: { product: true, bids: { select: { id: true } } },
-      orderBy: { createdAt: 'desc' }
-    });
-    return res.json(pools);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [pools, total] = await Promise.all([
+        prisma.demandPool.findMany({
+          include: { product: true, bids: { select: { id: true } } },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.demandPool.count()
+      ]);
+
+      return res.json({
+        data: pools,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const pools = await prisma.demandPool.findMany({
+        include: { product: true, bids: { select: { id: true } } },
+        orderBy: { createdAt: 'desc' }
+      });
+      return res.json(pools);
+    }
   } catch (error) {
     console.error('Error fetching demand pools:', error);
     return res.status(500).json({ error: 'Failed to fetch demand pools' });
@@ -390,18 +465,48 @@ router.put('/proposals/:id', verifyAuth, async (req: Request, res: Response): Pr
 // ORDERS (Admin view)
 // ──────────────────────────────────────────────
 
-// Get all orders (admin overview)
+// Get all orders (admin overview, with optional pagination)
 router.get('/orders', verifyAuth, async (req: Request, res: Response): Promise<any> => {
   try {
-    const orders = await prisma.order.findMany({
-      include: {
-        product: true,
-        consumer: { select: { id: true, name: true, city: true, pincode: true, phone: true } },
-        manufacturer: { select: { id: true, name: true, companyName: true, city: true } }
-      },
-      orderBy: { orderedAt: 'desc' }
-    });
-    return res.json(orders);
+    const hasPagination = req.query.page || req.query.limit;
+
+    if (hasPagination) {
+      const page = parseInt(req.query.page as string || '1');
+      const limit = parseInt(req.query.limit as string || '20');
+      const skip = (page - 1) * limit;
+
+      const [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          include: {
+            product: true,
+            consumer: { select: { id: true, name: true, city: true, pincode: true, phone: true } },
+            manufacturer: { select: { id: true, name: true, companyName: true, city: true } }
+          },
+          orderBy: { orderedAt: 'desc' },
+          skip,
+          take: limit
+        }),
+        prisma.order.count()
+      ]);
+
+      return res.json({
+        data: orders,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
+    } else {
+      const orders = await prisma.order.findMany({
+        include: {
+          product: true,
+          consumer: { select: { id: true, name: true, city: true, pincode: true, phone: true } },
+          manufacturer: { select: { id: true, name: true, companyName: true, city: true } }
+        },
+        orderBy: { orderedAt: 'desc' }
+      });
+      return res.json(orders);
+    }
   } catch (error) {
     console.error('Error fetching admin orders:', error);
     return res.status(500).json({ error: 'Failed to fetch orders' });

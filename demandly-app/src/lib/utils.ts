@@ -91,3 +91,28 @@ export function getRelativeTime(dateStr: string): string {
   if (days < 7) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
+
+export function getProductImage(image: string | undefined, name: string, id: string, lockOffset: number = 0): string {
+  if (image && image.startsWith('http') && !image.includes('localhost') && !image.includes('127.0.0.1')) {
+    return image;
+  }
+  
+  // Clean name: lower case, remove non-alphanumeric, split and take first 2 terms
+  const cleanName = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+  const words = cleanName.split(/\s+/).filter((w) => w.length > 2);
+  const query = encodeURIComponent(words.slice(0, 2).join(',') || 'product');
+  
+  // Calculate consistent lock number based on product ID hash
+  let hash = 0;
+  if (id) {
+    for (let i = 0; i < id.length; i++) {
+      hash += id.charCodeAt(i);
+    }
+  }
+  const lock = (hash % 20) + 1 + lockOffset;
+  
+  return `https://loremflickr.com/600/600/${query}?lock=${lock}`;
+}

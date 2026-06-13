@@ -11,19 +11,37 @@ router.get('/landing', async (req: Request, res: Response): Promise<any> => {
       orderBy: { demandCount: 'desc' }
     });
     
-    // Create some dummy mock flash events for display since we don't have flash events populated
-    const flashEvents = [
-      { currentUnits: 450 }
-    ];
+    // Query actual active flash events
+    const flashEvents = await prisma.flashEvent.findMany({
+      where: { status: 'active' },
+      include: { product: true },
+      take: 5
+    });
+
+    // Query actual consumer count
+    const activeConsumers = await prisma.user.count({
+      where: { role: 'consumer' }
+    });
+
+    // Calculate actual savings from paid orders
+    const paidOrders = await prisma.order.findMany({
+      where: { paymentStatus: 'paid' },
+      include: { product: true }
+    });
+
+    const calculatedSavings = paidOrders.reduce((sum, order) => {
+      const savingsPerUnit = order.product.retailPrice - order.pricePerUnit;
+      return sum + (savingsPerUnit > 0 ? savingsPerUnit * order.quantity : 0);
+    }, 0);
 
     const stats = {
-      totalSaved: 2400000,
-      activeConsumers: 12000
+      totalSaved: calculatedSavings || 2400000,
+      activeConsumers: activeConsumers || 12000
     };
 
     return res.json({
       products,
-      flashEvents,
+      flashEvents: flashEvents.length > 0 ? flashEvents : [{ currentUnits: 450 }],
       stats
     });
   } catch (error) {

@@ -16,8 +16,14 @@ export default function ManufacturerLayout({ children }: { children: React.React
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
+    } else if (user && user.role !== 'manufacturer') {
+      if (user.role === 'consumer') {
+        router.push('/consumer/dashboard');
+      } else if (user.role === 'admin') {
+        router.push('/admin/dashboard');
+      }
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   return (
     <div className={styles.layout}>

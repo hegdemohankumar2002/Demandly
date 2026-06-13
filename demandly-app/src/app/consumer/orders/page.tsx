@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import styles from './orders.module.css';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -22,6 +23,7 @@ const statusConfig: Record<string, { variant: 'warning' | 'secondary' | 'primary
 };
 
 export default function OrdersPage() {
+  const router = useRouter();
   const { token } = useAuthStore();
   const { addToast } = useToast();
   const [data, setData] = useState<any>({ orders: [], subscriptions: [] });
@@ -108,9 +110,10 @@ export default function OrdersPage() {
             });
             if (!verifyRes.ok) throw new Error('Payment verification failed');
             addToast({ type: 'success', title: 'Payment Successful!', message: 'Your order is now confirmed.' });
-            fetchOrders();
+            router.push(`/consumer/payment/success?orderId=${order.id}`);
           } catch (err: any) {
             addToast({ type: 'error', title: 'Payment Error', message: err.message });
+            router.push(`/consumer/payment/failed?orderId=${order.id}&error=${encodeURIComponent(err.message)}`);
           }
         },
         prefill: {
@@ -126,6 +129,7 @@ export default function OrdersPage() {
       paymentObject.open();
     } catch (error: any) {
       addToast({ type: 'error', title: 'Error', message: error.message });
+      router.push(`/consumer/payment/failed?orderId=${order.id}&error=${encodeURIComponent(error.message)}`);
     } finally {
       setPayingId(null);
     }

@@ -8,7 +8,8 @@ import Badge from '@/components/ui/Badge';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
-import { Package, Plus, Search, Tag, DollarSign, Scale, FileText } from 'lucide-react';
+import { uploadFile } from '@/lib/upload';
+import { Package, Plus, Search, Tag, DollarSign, Scale, FileText, Image } from 'lucide-react';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
 
 export default function ProposeProductPage() {
@@ -18,11 +19,12 @@ export default function ProposeProductPage() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'Staples',
+    category: 'Groceries',
     proposedPrice: '',
     unit: 'kg'
   });
@@ -51,23 +53,38 @@ export default function ProposeProductPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let imageUrl = '';
+      if (selectedFile && token) {
+        imageUrl = await uploadFile(selectedFile, token);
+      }
+
       const res = await fetch(`${API_URL}/manufacturer/proposals`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          image: imageUrl || undefined
+        })
       });
       
       if (!res.ok) throw new Error('Failed to submit proposal');
       
       addToast({ type: 'success', title: 'Submitted', message: 'Product proposal sent for admin review.' });
-      setFormData({ name: '', description: '', category: 'Staples', proposedPrice: '', unit: 'kg' });
+      setFormData({ name: '', description: '', category: 'Groceries', proposedPrice: '', unit: 'kg' });
+      setSelectedFile(null);
       fetchProposals();
     } catch (error: any) {
       addToast({ type: 'error', title: 'Error', message: error.message });
@@ -129,11 +146,11 @@ export default function ProposeProductPage() {
                   <div className={styles.field}>
                     <label className="label">Category</label>
                     <select name="category" className="input" value={formData.category} onChange={handleChange}>
-                      <option value="Staples">Staples</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Furniture">Furniture</option>
-                      <option value="Clothing">Clothing</option>
-                      <option value="Industrial">Industrial</option>
+                      <option value="Groceries">Groceries</option>
+                      <option value="Personal Care">Personal Care</option>
+                      <option value="Home & Living">Home & Living</option>
+                      <option value="Lifestyle">Lifestyle</option>
+                      <option value="Health">Health</option>
                     </select>
                   </div>
                   <div className={styles.field}>
@@ -170,6 +187,21 @@ export default function ProposeProductPage() {
                     />
                   </div>
                   <p className={styles.hint}>This will anchor the starting price of the reverse auction.</p>
+                </div>
+
+                <div className={styles.field}>
+                  <label className="label">Product Image</label>
+                  <div className={styles.inputWrapper}>
+                    <Image size={18} className={styles.inputIcon} />
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      className="input" 
+                      onChange={handleFileChange}
+                      style={{ paddingLeft: '40px', paddingTop: '8px' }}
+                    />
+                  </div>
+                  <p className={styles.hint}>Upload a clear image of the proposed product.</p>
                 </div>
 
                 <Button type="submit" size="lg" loading={submitting} icon={<Plus size={18} />}>
