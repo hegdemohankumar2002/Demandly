@@ -204,8 +204,8 @@ export default function RegisterPage() {
       <div className={styles.left}>
         <div className={styles.leftContent}>
           <Link href="/" className={styles.logo}>
-            <Zap size={24} />
-            <span>Demandly</span>
+            <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
+            <span className={styles.logoText}>Demandly</span>
           </Link>
           <h1 className={styles.leftTitle}>
             Join the <span className="gradient-text">buying revolution</span>

@@ -264,8 +264,8 @@ export default function LoginPage() {
       <div className={styles.left}>
         <div className={styles.leftContent}>
           <Link href="/" className={styles.logo}>
-            <Zap size={24} />
-            <span>Demandly</span>
+            <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
+            <span className={styles.logoText}>Demandly</span>
           </Link>
           <h1 className={styles.leftTitle}>
             Welcome back to{' '}

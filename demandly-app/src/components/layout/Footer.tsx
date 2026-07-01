@@ -13,7 +13,7 @@ export default function Footer() {
           {/* Brand */}
           <div className={styles.brand}>
             <Link href="/" className={styles.logo}>
-              <Zap size={20} className={styles.logoIcon} />
+              <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
               <span className={styles.logoText}>Demandly</span>
             </Link>
             <p className={styles.tagline}>

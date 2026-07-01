@@ -62,7 +62,7 @@ export default function Navbar() {
       <div className={styles.inner}>
         {/* Logo */}
         <Link href="/" className={styles.logo}>
-          <Zap size={24} className={styles.logoIcon} />
+          <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
           <span className={styles.logoText}>Demandly</span>
         </Link>
 

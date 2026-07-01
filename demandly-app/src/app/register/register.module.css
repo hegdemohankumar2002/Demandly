@@ -23,15 +23,21 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  color: var(--primary);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 800;
+  gap: var(--space-3);
   margin-bottom: var(--space-8);
+  text-decoration: none;
 }
 
-.logo span {
+.logoImage {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+
+.logoText {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 800;
   background: var(--gradient-hero);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
