@@ -39,7 +39,7 @@ export default function ProposeProductPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -93,19 +93,27 @@ export default function ProposeProductPage() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...filesArray]);
     }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      let imageUrl = '';
-      if (selectedFile && token) {
-        imageUrl = await uploadFile(selectedFile, token);
+      let imageUrls: string[] = [];
+      if (selectedFiles.length > 0 && token) {
+        imageUrls = await Promise.all(
+          selectedFiles.map((file) => uploadFile(file, token))
+        );
       }
+      const finalImageString = imageUrls.filter(Boolean).join(',');
 
       const res = await fetch(`${API_URL}/manufacturer/proposals`, {
         method: 'POST',
@@ -115,7 +123,7 @@ export default function ProposeProductPage() {
         },
         body: JSON.stringify({
           ...formData,
-          image: imageUrl || undefined
+          image: finalImageString || undefined
         })
       });
       
@@ -123,7 +131,7 @@ export default function ProposeProductPage() {
       
       addToast({ type: 'success', title: 'Submitted', message: 'Product proposal sent for admin review.' });
       setFormData({ name: '', description: '', category: 'Groceries', proposedPrice: '', unit: 'kg' });
-      setSelectedFile(null);
+      setSelectedFiles([]);
       fetchProposals();
     } catch (error: any) {
       addToast({ type: 'error', title: 'Error', message: error.message });
@@ -229,18 +237,54 @@ export default function ProposeProductPage() {
                 </div>
 
                 <div className={styles.field}>
-                  <label className="label">Product Image</label>
+                  <label className="label">Product Images</label>
                   <div className={styles.inputWrapper}>
                     <ImageIcon size={18} className={styles.inputIcon} />
                     <input 
                       type="file" 
                       accept="image/*"
+                      multiple
                       className="input" 
                       onChange={handleFileChange}
                       style={{ paddingLeft: '40px', paddingTop: '8px' }}
                     />
                   </div>
-                  <p className={styles.hint}>Upload a clear image of the proposed product.</p>
+                  <p className={styles.hint}>Upload one or more clear images of the proposed product.</p>
+
+                  {selectedFiles.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'var(--bg-hover)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '4px 10px',
+                          fontSize: '0.8rem'
+                        }}>
+                          <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
+                            {file.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFile(index)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--danger)',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              padding: '2px 4px'
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <Button type="submit" size="lg" loading={submitting} icon={<Plus size={18} />}>

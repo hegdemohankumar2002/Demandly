@@ -62,8 +62,11 @@ const adminLinks: NavItem[] = [
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuthStore();
-  // Use function initializer to avoid hydration mismatch
-  const mounted = typeof window !== 'undefined';
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   let links = consumerLinks;
   if (mounted) {

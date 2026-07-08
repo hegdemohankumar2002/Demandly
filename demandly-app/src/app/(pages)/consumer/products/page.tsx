@@ -11,7 +11,7 @@ import { formatCurrency, getProductImage } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import {
   Search, SlidersHorizontal, Package, TrendingDown,
-  Heart, ArrowUpDown, Grid3X3, List,
+  Heart, ArrowUpDown, Grid3X3, List, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const categories = ['All', 'Groceries', 'Personal Care', 'Home & Living', 'Lifestyle', 'Health'];
@@ -29,6 +29,100 @@ interface Product {
   demandThreshold: number;
   unit: string;
   tags: string[];
+}
+
+function CategoryCarousel({ products }: { products: Product[] }) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === 'left' ? -340 : 340;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <div className={styles.carouselWrapper}>
+      <button className={`${styles.scrollBtn} ${styles.scrollLeft}`} onClick={() => scroll('left')} aria-label="Scroll left">
+        <ChevronLeft size={20} />
+      </button>
+      <div className={styles.carouselScrollContainer} ref={scrollRef}>
+        {products.map((product) => {
+          const demandPercent = Math.round((product.demandCount / product.demandThreshold) * 100);
+          const imageUrl = getProductImage(product.image, product.name, product.id);
+          return (
+            <div key={product.id} className={styles.carouselCardWrapper}>
+              <Link href={`/consumer/products/${product.id}`} className={styles.cardLink}>
+                <Card variant="glass" padding="none" className={styles.productCard}>
+                  <div className={styles.productImage}>
+                    <img
+                      src={imageUrl}
+                      alt={product.name}
+                      className={styles.productImg}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const query = encodeURIComponent(product.name.split(' ').slice(0, 2).join(',') || 'product');
+                        target.src = `https://loremflickr.com/600/600/${query}?lock=1`;
+                      }}
+                    />
+                    <Badge variant="accent" size="sm" className={styles.catBadge}>
+                      {product.category}
+                    </Badge>
+                    {demandPercent >= 80 && (
+                      <Badge variant="danger" size="sm" className={styles.hotBadge} dot pulse>
+                        Almost There!
+                      </Badge>
+                    )}
+                  </div>
+                  <div className={styles.productBody}>
+                    <h3 className={styles.productName}>{product.name}</h3>
+                    <p className={styles.productDesc}>{product.description.substring(0, 80)}...</p>
+                    <div className={styles.productPricing}>
+                      <span className={styles.retailPrice}>{formatCurrency(product.retailPrice)}</span>
+                      <Badge variant="secondary" size="sm">
+                        <TrendingDown size={10} />
+                        Save up to 35%
+                      </Badge>
+                    </div>
+
+                    {/* Demand bar */}
+                    <div className={styles.demandSection}>
+                      <div className={styles.demandHeader}>
+                        <span className={styles.demandLabel}>Demand Progress</span>
+                        <span className={styles.demandCount}>
+                          {product.demandCount}/{product.demandThreshold}
+                        </span>
+                      </div>
+                      <div className={styles.demandTrack}>
+                        <div
+                          className={styles.demandFill}
+                          style={{ width: `${Math.min(demandPercent, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.productTags}>
+                      {product.tags && product.tags.map((tag: string) => (
+                        <span key={tag} className={styles.tag}>#{tag}</span>
+                      ))}
+                    </div>
+
+                    <Button fullWidth icon={<Heart size={16} />} size="sm">
+                      I Want This
+                    </Button>
+                  </div>
+                </Card>
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+      <button className={`${styles.scrollBtn} ${styles.scrollRight}`} onClick={() => scroll('right')} aria-label="Scroll right">
+        <ChevronRight size={20} />
+      </button>
+    </div>
+  );
 }
 
 export default function ProductsPage() {
@@ -49,6 +143,17 @@ export default function ProductsPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Group products by category
+  const productsByCategory = React.useMemo(() => {
+    return products.reduce((acc, product) => {
+      if (!acc[product.category]) {
+        acc[product.category] = [];
+      }
+      acc[product.category].push(product);
+      return acc;
+    }, {} as Record<string, Product[]>);
+  }, [products]);
 
   // Debounce search query
   useEffect(() => {
@@ -212,76 +317,93 @@ export default function ProductsPage() {
         </div>
       ) : (
         <>
-          <div className={viewMode === 'grid' ? styles.grid : styles.listView}>
-            {products.map((product) => {
-              const demandPercent = Math.round((product.demandCount / product.demandThreshold) * 100);
-              const imageUrl = getProductImage(product.image, product.name, product.id);
-              return (
-                <Link href={`/consumer/products/${product.id}`} key={product.id} className={styles.cardLink}>
-                  <Card variant="glass" padding="none" className={styles.productCard}>
-                    <div className={styles.productImage}>
-                      <img
-                        src={imageUrl}
-                        alt={product.name}
-                        className={styles.productImg}
-                        loading="lazy"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          const query = encodeURIComponent(product.name.split(' ').slice(0, 2).join(',') || 'product');
-                          target.src = `https://loremflickr.com/600/600/${query}?lock=1`;
-                        }}
-                      />
-                      <Badge variant="accent" size="sm" className={styles.catBadge}>
-                        {product.category}
-                      </Badge>
-                      {demandPercent >= 80 && (
-                        <Badge variant="danger" size="sm" className={styles.hotBadge} dot pulse>
-                          Almost There!
+          {viewMode === 'grid' ? (
+            <div className={styles.carouselsContainer}>
+              {Object.entries(productsByCategory).map(([catName, catProducts]) => (
+                <div key={catName} className={styles.categorySection} style={{ marginBottom: '3.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                      <span style={{ width: '4px', height: '18px', background: 'var(--primary)', borderRadius: '2px' }} />
+                      {catName}
+                    </h2>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{catProducts.length} items</span>
+                  </div>
+                  <CategoryCarousel products={catProducts} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.listView}>
+              {products.map((product) => {
+                const demandPercent = Math.round((product.demandCount / product.demandThreshold) * 100);
+                const imageUrl = getProductImage(product.image, product.name, product.id);
+                return (
+                  <Link href={`/consumer/products/${product.id}`} key={product.id} className={styles.cardLink}>
+                    <Card variant="glass" padding="none" className={styles.productCard}>
+                      <div className={styles.productImage}>
+                        <img
+                          src={imageUrl}
+                          alt={product.name}
+                          className={styles.productImg}
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            const query = encodeURIComponent(product.name.split(' ').slice(0, 2).join(',') || 'product');
+                            target.src = `https://loremflickr.com/600/600/${query}?lock=1`;
+                          }}
+                        />
+                        <Badge variant="accent" size="sm" className={styles.catBadge}>
+                          {product.category}
                         </Badge>
-                      )}
-                    </div>
-                    <div className={styles.productBody}>
-                      <h3 className={styles.productName}>{product.name}</h3>
-                      <p className={styles.productDesc}>{product.description.substring(0, 80)}...</p>
-                      <div className={styles.productPricing}>
-                        <span className={styles.retailPrice}>{formatCurrency(product.retailPrice)}</span>
-                        <Badge variant="secondary" size="sm">
-                          <TrendingDown size={10} />
-                          Save up to 35%
-                        </Badge>
+                        {demandPercent >= 80 && (
+                          <Badge variant="danger" size="sm" className={styles.hotBadge} dot pulse>
+                            Almost There!
+                          </Badge>
+                        )}
                       </div>
-
-                      {/* Demand bar */}
-                      <div className={styles.demandSection}>
-                        <div className={styles.demandHeader}>
-                          <span className={styles.demandLabel}>Demand Progress</span>
-                          <span className={styles.demandCount}>
-                            {product.demandCount}/{product.demandThreshold}
-                          </span>
+                      <div className={styles.productBody}>
+                        <h3 className={styles.productName}>{product.name}</h3>
+                        <p className={styles.productDesc}>{product.description.substring(0, 80)}...</p>
+                        <div className={styles.productPricing}>
+                          <span className={styles.retailPrice}>{formatCurrency(product.retailPrice)}</span>
+                          <Badge variant="secondary" size="sm">
+                            <TrendingDown size={10} />
+                            Save up to 35%
+                          </Badge>
                         </div>
-                        <div className={styles.demandTrack}>
-                          <div
-                            className={styles.demandFill}
-                            style={{ width: `${Math.min(demandPercent, 100)}%` }}
-                          />
+
+                        {/* Demand bar */}
+                        <div className={styles.demandSection}>
+                          <div className={styles.demandHeader}>
+                            <span className={styles.demandLabel}>Demand Progress</span>
+                            <span className={styles.demandCount}>
+                              {product.demandCount}/{product.demandThreshold}
+                            </span>
+                          </div>
+                          <div className={styles.demandTrack}>
+                            <div
+                              className={styles.demandFill}
+                              style={{ width: `${Math.min(demandPercent, 100)}%` }}
+                            />
+                          </div>
                         </div>
-                      </div>
 
-                      <div className={styles.productTags}>
-                        {product.tags && product.tags.map((tag: string) => (
-                          <span key={tag} className={styles.tag}>#{tag}</span>
-                        ))}
-                      </div>
+                        <div className={styles.productTags}>
+                          {product.tags && product.tags.map((tag: string) => (
+                            <span key={tag} className={styles.tag}>#{tag}</span>
+                          ))}
+                        </div>
 
-                      <Button fullWidth icon={<Heart size={16} />} size="sm">
-                        I Want This
-                      </Button>
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
+                        <Button fullWidth icon={<Heart size={16} />} size="sm">
+                          I Want This
+                        </Button>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {products.length === 0 && (
             <div className={styles.empty}>

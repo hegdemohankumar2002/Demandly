@@ -14,7 +14,7 @@ export default function Footer() {
           {/* Brand */}
           <div className={styles.brand}>
             <Link href="/" className={styles.logo}>
-              <Image src="/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} />
+              <Image src="/media/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} />
               <span className={styles.logoText}>Demandly</span>
             </Link>
             <p className={styles.tagline}>

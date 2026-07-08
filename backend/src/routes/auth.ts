@@ -13,7 +13,7 @@ import { registerSchema, loginSchema } from '../schemas/auth.schema';
 const router = Router();
 
 const generateAccessToken = (user: { id: string; role: string }) => {
-  return jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, { expiresIn: '15m' });
+  return jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, { expiresIn: '7d' });
 };
 
 const generateRefreshToken = (user: { id: string; role: string }) => {
@@ -302,6 +302,64 @@ router.post('/change-password', verifyAuth, async (req: Request, res: Response):
   } catch (error) {
     console.error('Change password error:', error);
     return res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Forgot Username Request (via Phone OTP)
+router.post('/forgot-username/send', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
+
+    const user = await prisma.user.findFirst({ where: { phone } });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this phone number' });
+    }
+
+    await sendOtp(phone, 'phone');
+
+    return res.status(200).json({
+      message: 'Verification code sent',
+      target: phone,
+      type: 'phone'
+    });
+  } catch (error) {
+    console.error('Forgot username send error:', error);
+    return res.status(500).json({ error: 'Failed to request username recovery' });
+  }
+});
+
+// Forgot Username Verify (returns email)
+router.post('/forgot-username/verify', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { phone, code } = req.body;
+    if (!phone || !code) {
+      return res.status(400).json({ error: 'Phone and verification code are required' });
+    }
+
+    const isValid = await verifyOtp(phone, code, 'phone');
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
+    }
+
+    const users = await prisma.user.findMany({
+      where: { phone },
+      select: { email: true, name: true }
+    });
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Recovery successful',
+      emails: users.map(u => u.email)
+    });
+  } catch (error) {
+    console.error('Forgot username verify error:', error);
+    return res.status(500).json({ error: 'Failed to verify username recovery' });
   }
 });
 

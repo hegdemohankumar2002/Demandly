@@ -17,10 +17,13 @@ export default function ConsumerLayout({ children }: { children: React.ReactNode
     if (!isAuthenticated) {
       router.push('/login');
     } else if (user && user.role !== 'consumer') {
-      if (user.role === 'manufacturer') {
-        router.push('/manufacturer/dashboard');
-      } else if (user.role === 'admin') {
-        router.push('/admin/dashboard');
+      const isPreview = typeof window !== 'undefined' && sessionStorage.getItem('preview_customer_mode') === 'true';
+      if (!isPreview) {
+        if (user.role === 'manufacturer') {
+          router.push('/manufacturer/dashboard');
+        } else if (user.role === 'admin') {
+          router.push('/admin/dashboard');
+        }
       }
     }
   }, [isAuthenticated, user, router]);

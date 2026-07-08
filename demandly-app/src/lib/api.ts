@@ -54,12 +54,26 @@ if (typeof window !== 'undefined' && !(window as any).__fetchIntercepted) {
 
       newInit.headers = headers;
 
+      let response: Response;
       if (input instanceof Request) {
         const newRequest = new Request(input, { headers });
-        return originalFetch(newRequest, init);
+        response = await originalFetch(newRequest, init);
+      } else {
+        response = await originalFetch(input, newInit);
       }
 
-      return originalFetch(input, newInit);
+      if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/google')) {
+        if (typeof window !== 'undefined') {
+          const token = localStorage.getItem('demandly_token');
+          if (token) {
+            localStorage.removeItem('demandly_user');
+            localStorage.removeItem('demandly_token');
+            window.location.href = '/login?expired=true';
+          }
+        }
+      }
+
+      return response;
     }
 
     return originalFetch(input, init);

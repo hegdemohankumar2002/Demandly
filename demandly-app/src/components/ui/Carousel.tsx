@@ -1,11 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import styles from './Carousel.module.css';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+export interface CarouselItem {
+  image: string;
+  title: string;
+  description: string;
+  badge?: string;
+  link: string;
+}
+
 interface CarouselProps {
-  images: string[];
+  images?: string[];
+  items?: CarouselItem[];
   autoplay?: boolean;
   autoplayInterval?: number;
   aspectRatio?: string;
@@ -14,7 +24,8 @@ interface CarouselProps {
 }
 
 export default function Carousel({
-  images,
+  images = [],
+  items,
   autoplay = true,
   autoplayInterval = 4000,
   aspectRatio = '16/9',
@@ -25,32 +36,34 @@ export default function Carousel({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const autoplayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const slideCount = items ? items.length : images.length;
+
   const nextSlide = useCallback(() => {
-    if (isTransitioning) return;
+    if (isTransitioning || slideCount <= 1) return;
     setIsTransitioning(true);
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-  }, [images.length, isTransitioning]);
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % slideCount);
+  }, [slideCount, isTransitioning]);
 
   const prevSlide = useCallback(() => {
-    if (isTransitioning) return;
+    if (isTransitioning || slideCount <= 1) return;
     setIsTransitioning(true);
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
-  }, [images.length, isTransitioning]);
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + slideCount) % slideCount);
+  }, [slideCount, isTransitioning]);
 
   const goToSlide = useCallback((index: number) => {
-    if (isTransitioning || index === currentIndex) return;
+    if (isTransitioning || index === currentIndex || slideCount <= 1) return;
     setIsTransitioning(true);
     setCurrentIndex(index);
-  }, [currentIndex, isTransitioning]);
+  }, [currentIndex, isTransitioning, slideCount]);
 
   const resetAutoplay = useCallback(() => {
     if (autoplayTimerRef.current) {
       clearInterval(autoplayTimerRef.current);
     }
-    if (autoplay && images.length > 1) {
+    if (autoplay && slideCount > 1) {
       autoplayTimerRef.current = setInterval(nextSlide, autoplayInterval);
     }
-  }, [autoplay, autoplayInterval, images.length, nextSlide]);
+  }, [autoplay, autoplayInterval, slideCount, nextSlide]);
 
   useEffect(() => {
     resetAutoplay();
@@ -65,7 +78,7 @@ export default function Carousel({
     setIsTransitioning(false);
   };
 
-  if (!images || images.length === 0) return null;
+  if (slideCount === 0) return null;
 
   return (
     <div 
@@ -84,15 +97,43 @@ export default function Carousel({
         }}
         onTransitionEnd={handleTransitionEnd}
       >
-        {images.map((image, index) => (
-          <div key={index} className={styles.carouselSlide}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt={`Slide ${index + 1}`} className={styles.carouselImage} />
-          </div>
-        ))}
+        {items && items.length > 0 ? (
+          items.map((item, index) => (
+            <div 
+              key={index} 
+              className={styles.carouselSlide}
+              style={{ 
+                backgroundImage: `url(${item.image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
+              <div className={styles.slideOverlay} />
+              <div className={styles.slideContent}>
+                {item.badge && <span className={styles.slideBadge}>{item.badge}</span>}
+                <h3 className={styles.slideTitle}>{item.title}</h3>
+                <p className={styles.slideDesc}>{item.description}</p>
+                <Link href={item.link}>
+                  <button className={styles.shopNowBtn}>Shop Now</button>
+                </Link>
+              </div>
+            </div>
+          ))
+        ) : (
+          images.map((image, index) => (
+            <div key={index} className={styles.carouselSlide}>
+              <Link href="/consumer/products" className={styles.slideLink}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={image} alt={`Slide ${index + 1}`} className={styles.carouselImage} />
+                <button className={styles.shopNowBtn}>Shop Now</button>
+              </Link>
+            </div>
+          ))
+        )}
       </div>
 
-      {showArrows && images.length > 1 && (
+      {showArrows && slideCount > 1 && (
         <>
           <button className={`${styles.navButton} ${styles.left}`} onClick={prevSlide} aria-label="Previous slide">
             <ChevronLeft size={20} />
@@ -103,9 +144,9 @@ export default function Carousel({
         </>
       )}
 
-      {showDots && images.length > 1 && (
+      {showDots && slideCount > 1 && (
         <div className={styles.dotsContainer}>
-          {images.map((_, index) => (
+          {Array.from({ length: slideCount }).map((_, index) => (
             <button
               key={index}
               className={`${styles.dot} ${index === currentIndex ? styles.activeDot : ''}`}

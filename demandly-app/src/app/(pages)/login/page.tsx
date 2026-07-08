@@ -265,7 +265,7 @@ export default function LoginPage() {
       <div className={styles.left}>
         <div className={styles.leftContent}>
           <Link href="/" className={styles.logo}>
-            <Image src="/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} priority />
+            <Image src="/media/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} priority />
             <span className={styles.logoText}>Demandly</span>
           </Link>
           <h1 className={styles.leftTitle}>
@@ -378,6 +378,12 @@ export default function LoginPage() {
                   Sign In
                 </Button>
               </form>
+
+              <div style={{ textAlign: 'center', marginTop: '16px', marginBottom: '8px' }}>
+                <Link href="/forgot-credentials" style={{ fontSize: '13px', color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 500 }} className={styles.adminBtn}>
+                  Forgot credentials (username/password)?
+                </Link>
+              </div>
 
               <GoogleLoginButton 
                 onSuccess={handleGoogleSuccess} 

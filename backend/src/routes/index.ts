@@ -15,8 +15,9 @@ const v1Router = Router();
 
 // All routes under /api/v1/*
 
-// Public routes (still versioned per design decision)
+// Public routes (still versioned per design decision) - NO API key required
 v1Router.use('/auth', authLimiter, authRouter);
+v1Router.use('/public', publicRouter);
 v1Router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running and accessible.' });
 });
@@ -26,11 +27,11 @@ v1Router.use(apiKeyAuth);
 v1Router.use('/manufacturer', manufacturerRouter);
 v1Router.use('/consumer', consumerRouter);
 v1Router.use('/admin', adminRouter);
-v1Router.use('/public', publicRouter);
 v1Router.use('/notifications', notificationsRouter);
 v1Router.use('/payment', paymentRouter);
 v1Router.use('/upload', uploadRouter);
 
 router.use('/api/v1', v1Router);
+router.use('/api', v1Router);
 
 export default router;

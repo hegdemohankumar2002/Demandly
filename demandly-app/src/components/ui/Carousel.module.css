@@ -104,3 +104,112 @@
 :global(.dark) .navButton:hover {
   background: var(--bg-elevated);
 }
+
+.slideLink {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.slideOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(11, 17, 30, 0.9) 25%, rgba(11, 17, 30, 0.5) 55%, transparent 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.slideContent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--space-8) var(--space-12) var(--space-8) calc(var(--space-12) + var(--space-4));
+  width: 50%;
+  z-index: 2;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .slideContent {
+    width: 85%;
+    padding: var(--space-4) var(--space-6);
+  }
+  .slideOverlay {
+    background: linear-gradient(to top, rgba(11, 17, 30, 0.9) 60%, rgba(11, 17, 30, 0.4) 100%);
+  }
+}
+
+.slideBadge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(99, 133, 255, 0.25);
+  border: 1px solid rgba(99, 133, 255, 0.4);
+  color: #8da4ff;
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-3);
+}
+
+.slideTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: var(--space-2);
+  line-height: 1.2;
+}
+
+.slideDesc {
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: var(--space-5);
+  line-height: 1.5;
+  max-width: 440px;
+}
+
+.shopNowBtn {
+  position: absolute;
+  bottom: var(--space-8);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-3) var(--space-8);
+  background: var(--gradient-hero);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-fast);
+  z-index: 5;
+}
+
+.shopNowBtn:hover {
+  transform: translateX(-50%) scale(1.05);
+  box-shadow: var(--shadow-lg);
+  filter: brightness(1.1);
+}
+
+/* Position shopNowBtn relative to slideContent layout */
+.slideContent .shopNowBtn {
+  position: static;
+  transform: none;
+  margin-top: var(--space-2);
+  box-shadow: var(--shadow-md);
+}
+
+.slideContent .shopNowBtn:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-lg);
+}
+

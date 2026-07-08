@@ -4,15 +4,33 @@
   flex-direction: column;
 }
 
-/* ---- Hero ---- */
+/* ---- Hero Grid Layout ---- */
 .hero {
   position: relative;
-  min-height: 95vh;
+  min-height: 70vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(var(--navbar-height) + var(--space-24)) var(--space-6) var(--space-24);
+  padding: calc(var(--navbar-height) + var(--space-12)) var(--space-6) var(--space-10);
   overflow: hidden;
+  /* Dark Navy base with background image and smooth blending gradient to the left */
+  background-color: #0b111e;
+  background-image: 
+    linear-gradient(to right, #0b111e 35%, rgba(11, 17, 30, 0.8) 55%, transparent 80%),
+    url('/media/hero_bg_shopping_cart.png');
+  background-size: cover;
+  background-position: right center;
+  background-repeat: no-repeat;
+}
+
+/* Layer the radial gradient on top of any background image */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 75% 20%, hsla(222, 50%, 60%, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .heroGlow {
@@ -24,54 +42,96 @@
   height: 800px;
   background: radial-gradient(circle, hsla(252, 85%, 60%, 0.12) 0%, transparent 70%);
   pointer-events: none;
+  z-index: 1;
 }
 
 .heroContent {
+  width: 100%;
+  max-width: var(--max-width-lg);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 1.1fr;
+  align-items: center;
+  gap: var(--space-12);
   position: relative;
-  text-align: center;
-  max-width: 780px;
+  animation: fadeInUp 800ms ease;
+  z-index: 2;
+}
+
+@media (max-width: 1024px) {
+  .heroContent {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: var(--space-8);
+  }
+}
+
+.heroLeft {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-6);
-  animation: fadeInUp 800ms ease;
+}
+
+@media (max-width: 1024px) {
+  .heroLeft {
+    align-items: center;
+  }
+}
+
+.heroRight {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 480px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .heroRight {
+    height: 380px;
+    margin-top: var(--space-4);
+  }
 }
 
 .heroTitle {
-  font-size: var(--text-hero);
+  font-size: 3.5rem;
   font-weight: 800; /* Extremely bold */
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: -0.05em; /* Tighter for that Apple look */
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  color: #ffffff;
 }
 
 .heroSubtitle {
-  font-size: var(--text-lg);
-  color: var(--text-secondary);
-  max-width: 600px;
-  line-height: 1.7;
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 620px;
+  line-height: 1.65;
 }
 
 .highlight {
-  color: var(--secondary);
+  color: #6385ff;
   font-weight: 600;
 }
 
 .heroCTA {
   display: flex;
   gap: var(--space-4);
-  margin-top: var(--space-4);
+  margin-top: var(--space-6);
 }
 
 .heroStats {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-6);
   margin-top: var(--space-8);
-  padding: var(--space-5) var(--space-8);
-  background: var(--gradient-glass);
+  padding: var(--space-4) var(--space-6);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-xl);
 }
 
@@ -86,19 +146,19 @@
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 800;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .heroStatLabel {
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  color: rgba(255, 255, 255, 0.5);
   font-weight: 500;
 }
 
 .heroStatDivider {
   width: 1px;
   height: 40px;
-  background: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* ---- Ticker ---- */
@@ -279,6 +339,13 @@
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.productImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .productImagePlaceholder {
@@ -306,6 +373,7 @@
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

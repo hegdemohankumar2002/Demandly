@@ -170,6 +170,9 @@ export default function ProductDetailPage() {
   };
 
   const getDynamicMockImages = () => {
+    if (product.image && product.image.includes(',')) {
+      return product.image.split(',').filter(Boolean);
+    }
     return [
       getProductImage(product.image, product.name, product.id, 0),
       getProductImage(product.image, product.name, product.id, 1),

@@ -44,3 +44,10 @@ Demandly-mobile-main/
 # ─── AI / Agent config ──────────────────────────────────
 **/CLAUDE.md
 **/AGENTS.md
+
+# ─── Binary documents & archives ────────────────────────
+**/*.pptx
+**/*.docx
+**/*.zip
+**/*.rar
+**/project detail.txt

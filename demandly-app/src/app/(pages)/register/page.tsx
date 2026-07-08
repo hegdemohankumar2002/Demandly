@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
-import { Zap, Mail, Lock, User, MapPin, Phone, ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { Zap, Mail, Lock, User, MapPin, Phone, ArrowLeft, ArrowRight, Check, Compass } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,6 +39,7 @@ export default function RegisterPage() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
   const [phoneOtpVerifyLoading, setPhoneOtpVerifyLoading] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
@@ -156,6 +157,68 @@ export default function RegisterPage() {
     }
   };
 
+  const handleFetchGPSLocation = () => {
+    if (!navigator.geolocation) {
+      addToast({
+        type: 'error',
+        title: 'Not Supported',
+        message: 'Geolocation is not supported by your browser.',
+      });
+      return;
+    }
+
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          if (!res.ok) throw new Error('Failed to fetch location details');
+          const data = await res.json();
+
+          const pincode = data.address?.postcode || '';
+          const city =
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
+            data.address?.county ||
+            '';
+
+          setFormData((prev) => ({
+            ...prev,
+            pincode,
+            city,
+          }));
+
+          addToast({
+            type: 'success',
+            title: 'Location Found',
+            message: `Autofilled: ${city} (${pincode})`,
+          });
+        } catch (err: any) {
+          addToast({
+            type: 'error',
+            title: 'Location Error',
+            message: err.message || 'Failed to resolve coordinates',
+          });
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      (error) => {
+        addToast({
+          type: 'error',
+          title: 'GPS Access Denied',
+          message: error.message || 'Could not fetch geolocation.',
+        });
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.password) {
@@ -205,7 +268,7 @@ export default function RegisterPage() {
       <div className={styles.left}>
         <div className={styles.leftContent}>
           <Link href="/" className={styles.logo}>
-            <Image src="/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} priority />
+            <Image src="/media/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} priority />
             <span className={styles.logoText}>Demandly</span>
           </Link>
           <h1 className={styles.leftTitle}>
@@ -408,7 +471,29 @@ export default function RegisterPage() {
             {step === 3 && (
               <div className={styles.stepContent}>
                 <div className={styles.field}>
-                  <label htmlFor="pincode" className="label">Pincode</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label htmlFor="pincode" className="label" style={{ margin: 0 }}>Pincode</label>
+                    <button
+                      type="button"
+                      onClick={handleFetchGPSLocation}
+                      disabled={gpsLoading}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      <Compass size={14} style={{ animation: gpsLoading ? 'spin 1s linear infinite' : 'none' }} />
+                      {gpsLoading ? 'Locating...' : 'Use Current Location'}
+                    </button>
+                  </div>
                   <div className={styles.inputWrapper}>
                     <MapPin size={18} className={styles.inputIcon} />
                     <input id="pincode" type="text" className="input" placeholder="e.g. 400001" style={{ paddingLeft: '42px' }} value={formData.pincode} onChange={handleInputChange} />

@@ -36,6 +36,11 @@ export const requireRole = (roles: string | string[]) => {
 export const apiKeyAuth = (req: Request, res: Response, next: NextFunction): void => {
   const apiKey = req.header('x-api-key');
 
+  // Skip API key check entirely in development mode for easier testing
+  if (config.nodeEnv === 'development') {
+    return next();
+  }
+
   if (!apiKey) {
     res.status(401).json({ error: 'Access denied. No API key provided.' });
     return;

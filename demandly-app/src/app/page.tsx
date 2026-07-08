@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
 import Carousel from '@/components/ui/Carousel';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCurrency, formatNumber, getProductImage } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import {
   Zap, ArrowRight, Users, TrendingDown,
@@ -159,46 +159,47 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className={styles.hero} id="hero" aria-labelledby="hero-title">
         <div className={styles.heroContent}>
-          <Badge variant="secondary" dot pulse aria-live="polite">
-            🔥 {formatNumber(data?.flashEvents[0]?.currentUnits || 0)} people just joined a flash deal
-          </Badge>
-          <h1 id="hero-title" className={styles.heroTitle}>
-            Stop Overpaying.{' '}
-            <span className="gradient-text">Start Demanding.</span>
-          </h1>
-          <p className={styles.heroSubtitle}>
-            Unite with thousands of consumers. Aggregate demand. Let manufacturers
-            compete to give you the <strong>best price</strong> — saving up to{' '}
-            <span className={styles.highlight}>40% on everyday products</span>.
-          </p>
-          <div className={styles.heroCTA}>
-            <Link href="/register">
-              <Button size="lg" icon={<Zap size={20} />}>
-                Start Saving Today
-              </Button>
-            </Link>
-            <Link href="/consumer/products">
-              <Button variant="outline" size="lg" iconRight={<ArrowRight size={18} />}>
-                Browse Products
-              </Button>
-            </Link>
+          <div className={styles.heroLeft}>
+            <h1 id="hero-title" className={styles.heroTitle}>
+              Stop Overpaying.<br />
+              <span className="gradient-text">Start Demanding.</span>
+            </h1>
+            <p className={styles.heroSubtitle}>
+              Unite with thousands of consumers. Aggregate demand. Let manufacturers
+              compete to give you the <strong>best price</strong> — saving up to{' '}
+              <span className={styles.highlight}>40% on everyday products</span>.
+            </p>
+            <div className={styles.heroCTA}>
+              <Link href="/register">
+                <Button size="lg" icon={<Zap size={20} />}>
+                  Start Saving Today
+                </Button>
+              </Link>
+              <Link href="/consumer/products">
+                <Button variant="outline" size="lg" iconRight={<ArrowRight size={18} />}>
+                  Browse Products
+                </Button>
+              </Link>
+            </div>
+            <div className={styles.heroStats} role="list" aria-label="Platform statistics">
+              <div className={styles.heroStat} role="listitem">
+                <span className={styles.heroStatValue}>12K+</span>
+                <span className={styles.heroStatLabel}>Active Consumers</span>
+              </div>
+              <div className={styles.heroStatDivider} aria-hidden="true" />
+              <div className={styles.heroStat} role="listitem">
+                <span className={styles.heroStatValue}>₹24L+</span>
+                <span className={styles.heroStatLabel}>Total Saved</span>
+              </div>
+              <div className={styles.heroStatDivider} aria-hidden="true" />
+              <div className={styles.heroStat} role="listitem">
+                <span className={styles.heroStatValue}>150+</span>
+                <span className={styles.heroStatLabel}>Manufacturers</span>
+              </div>
+            </div>
           </div>
-          <div className={styles.heroStats} role="list" aria-label="Platform statistics">
-            <div className={styles.heroStat} role="listitem">
-              <span className={styles.heroStatValue}>12K+</span>
-              <span className={styles.heroStatLabel}>Active Consumers</span>
-            </div>
-            <div className={styles.heroStatDivider} aria-hidden="true" />
-            <div className={styles.heroStat} role="listitem">
-              <span className={styles.heroStatValue}>₹24L+</span>
-              <span className={styles.heroStatLabel}>Total Saved</span>
-            </div>
-            <div className={styles.heroStatDivider} aria-hidden="true" />
-            <div className={styles.heroStat} role="listitem">
-              <span className={styles.heroStatValue}>150+</span>
-              <span className={styles.heroStatLabel}>Manufacturers</span>
-            </div>
-          </div>
+
+          <div className={styles.heroRight} />
         </div>
       </section>
 
@@ -225,10 +226,28 @@ export default function LandingPage() {
       {/* Hero Promo Carousel */}
       <section className="container" style={{ marginTop: '2.5rem', marginBottom: '1.5rem', width: '100%', maxWidth: 'var(--max-width)' }} aria-label="Featured deals carousel">
         <Carousel
-          images={[
-            '/images/groceries-deal.svg',
-            '/images/essentials-clothing-deal.svg',
-            '/images/healthcare-medicines-deal.svg'
+          items={[
+            {
+              image: '/media/groceries-deal.png?v=1',
+              badge: 'Groceries & Staples',
+              title: 'Wholesale Farm Produce',
+              description: 'Pool demand with your neighbors to buy fresh vegetables, grains, and fruits straight from source farms.',
+              link: '/consumer/products?category=groceries'
+            },
+            {
+              image: '/media/essentials-clothing-deal.png?v=1',
+              badge: 'Clothing & Essentials',
+              title: 'Premium Manufacturer Apparel',
+              description: 'Direct manufacturer orders for organic cotton tees, denim, and daily essentials. Zero middleman markups.',
+              link: '/consumer/products?category=apparel'
+            },
+            {
+              image: '/media/healthcare-medicines-deal.png?v=1',
+              badge: 'Healthcare & Wellness',
+              title: 'Wellness & Daily Health',
+              description: 'Bulk order daily supplements, vitamins, and healthcare essentials directly from certified wellness labs.',
+              link: '/consumer/products?category=healthcare'
+            }
           ]}
           autoplay={true}
           aspectRatio="21/9"
@@ -305,9 +324,17 @@ export default function LandingPage() {
               <Link href={`/consumer/products/${product.id}`} key={product.id} className={styles.productCardLink}>
                 <Card variant="glass" padding="none" className={styles.productCard}>
                   <div className={styles.productImage}>
-                    <div className={styles.productImagePlaceholder} aria-hidden="true">
-                      <Package size={32} />
-                    </div>
+                    <img
+                      src={getProductImage(undefined, product.name, product.id)}
+                      alt={product.name}
+                      className={styles.productImg}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const query = encodeURIComponent(product.name.split(' ').slice(0, 2).join(',') || 'product');
+                        target.src = `https://loremflickr.com/600/600/${query}?lock=1`;
+                      }}
+                    />
                     <Badge variant="accent" size="sm" className={styles.productCategoryBadge}>
                       {product.category}
                     </Badge>
