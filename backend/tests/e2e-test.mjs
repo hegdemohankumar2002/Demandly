@@ -26,7 +26,7 @@ for (const line of envContent.split('\n')) {
   if (match) process.env[match[1]] = match[2];
 }
 
-const API = 'http://localhost:5000/api';
+const API = 'http://localhost:5000/api/v1';
 
 const state = {
   admin: { token: null, id: null },
@@ -48,7 +48,10 @@ function fail(msg, detail) { failCount++; log('❌', `${msg}${detail ? ' — ' +
 function section(title) { console.log(`\n${'─'.repeat(50)}\n  📋 ${title}\n${'─'.repeat(50)}`); }
 
 async function api(method, path, body, token) {
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 
+    'Content-Type': 'application/json',
+    'x-api-key': 'your-super-secret-master-api-key',
+  };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   
   const opts = { method, headers };
@@ -105,6 +108,21 @@ async function run() {
     if (rVerify.ok) {
       state.admin = { token: rVerify.data.token, id: rVerify.data.user.id };
       pass(`Admin 2FA code verified: admin logged in successfully`);
+      
+      // Verify Manufacturers to enable product proposal & bidding
+      let rAppMfg1 = await api('POST', `/admin/verifications/${state.mfg1.id}/approve`, {}, rVerify.data.token);
+      if (rAppMfg1.status === 200) {
+        pass(`Manufacturer 1 verified successfully by Admin`);
+      } else {
+        fail('Verify Manufacturer 1', rAppMfg1.data.error || 'Failed');
+      }
+
+      let rAppMfg2 = await api('POST', `/admin/verifications/${state.mfg2.id}/approve`, {}, rVerify.data.token);
+      if (rAppMfg2.status === 200) {
+        pass(`Manufacturer 2 verified successfully by Admin`);
+      } else {
+        fail('Verify Manufacturer 2', rAppMfg2.data.error || 'Failed');
+      }
     } else {
       fail('Admin 2FA verification failed', rVerify.data.error);
     }

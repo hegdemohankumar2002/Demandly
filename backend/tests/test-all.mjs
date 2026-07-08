@@ -9,13 +9,17 @@
 
 import fs from 'fs';
 
-const BASE = 'http://localhost:5000/api';
+const BASE = 'http://localhost:5000/api/v1';
+const MASTER_API_KEY = 'your-super-secret-master-api-key';
 let token = '';
 const results = [];
 
 async function request(method, path, body = null, useToken = true) {
   const url = `${BASE}${path}`;
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 
+    'Content-Type': 'application/json',
+    'x-api-key': MASTER_API_KEY,
+  };
   if (useToken && token) headers['Authorization'] = `Bearer ${token}`;
 
   const start = Date.now();
@@ -67,7 +71,7 @@ async function runTests() {
 
   // ─── 1. Health Check ───
   console.log('🏥 HEALTH CHECK');
-  await request('GET', '/../lb-health', null, false);
+  await request('GET', '/../../lb-health', null, false);
 
   // ─── 2. Auth ───
   console.log('\n🔐 AUTH');

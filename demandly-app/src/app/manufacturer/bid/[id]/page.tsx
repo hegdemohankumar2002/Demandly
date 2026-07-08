@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from './bid.module.css';
@@ -14,14 +14,42 @@ import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import { ArrowLeft, Factory, MapPin, Check, FileText, IndianRupee, Clock, Zap } from 'lucide-react';
 
+interface DemandPool {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    unit: string;
+    retailPrice: number;
+  };
+  totalDemand: number;
+  threshold: number;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount: number;
+  deadline: string;
+  status: string;
+  geography: string;
+  pincode: string;
+}
+
+interface ExistingBid {
+  id: string;
+  pricePerUnit: number;
+  deliveryTimeline: string;
+  notes?: string;
+  status: string;
+}
+
 export default function BidPage() {
   const params = useParams();
   const router = useRouter();
   const { addToast } = useToast();
   const { token } = useAuthStore();
   
-  const [pool, setPool] = useState<any>(null);
-  const [existingBid, setExistingBid] = useState<any>(null);
+  const [pool, setPool] = useState<DemandPool | null>(null);
+  const [existingBid, setExistingBid] = useState<ExistingBid | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [bidPrice, setBidPrice] = useState(0);
@@ -32,12 +60,13 @@ export default function BidPage() {
 
   React.useEffect(() => {
     if (!token) return;
+    let cancelled = false;
     const fetchPool = async () => {
       try {
         const res = await fetch(`${API_URL}/manufacturer/demand-pools/${params.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const data = await res.json();
           setPool(data.pool);
           setExistingBid(data.bid);
@@ -46,10 +75,11 @@ export default function BidPage() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchPool();
+    return () => { cancelled = true; };
   }, [token, params.id]);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading details...</div>;

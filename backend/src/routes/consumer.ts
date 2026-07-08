@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { verifyAuth, requireRole } from '../middlewares/auth';
+import { validate } from '../middlewares/validation';
+import { registerInterestSchema } from '../schemas/routes.schema';
 
 const router = Router();
 
@@ -92,15 +94,10 @@ router.get('/interests', verifyAuth, async (req: Request, res: Response): Promis
   }
 });
 
-// Register an Interest
-router.post('/interests', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.post('/interests', verifyAuth, validate(registerInterestSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const consumerId = (req as any).user.id;
     const { productId, quantity, maxPrice, timeline } = req.body;
-
-    if (!productId || !quantity || !maxPrice) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
 
     const interest = await prisma.interest.create({
       data: {

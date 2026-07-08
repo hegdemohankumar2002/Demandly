@@ -1,8 +1,13 @@
 import * as admin from 'firebase-admin';
 import { prisma } from '../db';
 import { logger } from '../utils/logger';
+import { onNotificationCreated } from '../utils/events';
 
 let isFcmInitialized = false;
+
+onNotificationCreated(async ({ userId, title, message, type, actionUrl }) => {
+  await sendPushNotification(userId, title, message, { type, actionUrl });
+});
 
 export function initFcm() {
   const fcmServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;

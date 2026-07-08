@@ -15,7 +15,7 @@ export default function ComparePage() {
       <Card padding="lg" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <Scale size={48} style={{ margin: '0 auto 1rem', color: 'var(--secondary)' }} />
         <h2 style={{ fontSize: '18px', fontWeight: '500', marginBottom: '0.5rem' }}>Comparison tools are coming soon</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>We're working on making it easier for you to make informed decisions.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>We&apos;re working on making it easier for you to make informed decisions.</p>
       </Card>
     </div>
   );

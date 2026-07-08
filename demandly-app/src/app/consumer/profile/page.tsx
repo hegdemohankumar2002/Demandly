@@ -10,48 +10,84 @@ import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
 import { User, MapPin, Phone, Mail, Save, TrendingUp, ShoppingBag, Heart } from 'lucide-react';
 
+interface ConsumerProfile {
+  id?: string;
+  name: string;
+  email: string;
+  city: string;
+  pincode: string;
+  phone: string;
+  role: string;
+}
+
+interface ConsumerStats {
+  activeInterests: number;
+  activeOrders: number;
+  totalSavings: number;
+  savingsPercentage: number;
+}
+
+interface FormData {
+  name: string;
+  phone: string;
+  city: string;
+  pincode: string;
+}
+
 export default function ConsumerProfilePage() {
   const { token, user } = useAuthStore();
   const { addToast } = useToast();
-  const [profile, setProfile] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [profile, setProfile] = useState<ConsumerProfile | null>(null);
+  const [stats, setStats] = useState<ConsumerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    phone: '',
+    city: '',
+    pincode: ''
+  });
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
     const fetchData = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         // Fetch Profile
         const profileRes = await fetch(`${API_URL}/consumer/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (profileRes.ok) {
+        if (profileRes.ok && !cancelled) {
           const profileData = await profileRes.json();
           setProfile(profileData);
-          setFormData(profileData);
+          setFormData({
+            name: profileData.name || '',
+            phone: profileData.phone || '',
+            city: profileData.city || '',
+            pincode: profileData.pincode || ''
+          });
         }
 
         // Fetch Stats
         const statsRes = await fetch(`${API_URL}/consumer/stats`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (statsRes.ok) {
+        if (statsRes.ok && !cancelled) {
           const statsData = await statsRes.json();
           setStats(statsData);
         }
       } catch (err) {
         console.error('Error fetching consumer profile/stats data:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleSave = async () => {
@@ -68,7 +104,7 @@ export default function ConsumerProfilePage() {
         })
       });
       if (res.ok) {
-        setProfile(formData);
+        setProfile(prev => prev ? { ...prev, ...formData } : null);
         setEditing(false);
         addToast({ type: 'success', title: 'Profile Updated', message: 'Your changes have been saved.' });
       } else {

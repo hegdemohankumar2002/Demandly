@@ -9,26 +9,47 @@ import { formatCurrency } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import { TrendingUp, DollarSign, ShoppingCart, Target, BarChart3, Package } from 'lucide-react';
 
+interface ManufacturerAnalytics {
+  totalRevenue: number;
+  totalBids: number;
+  wonBids: number;
+  bidWinRate: number;
+  totalOrders: number;
+  deliveredOrders: number;
+  monthlyRevenue: Record<string, number>;
+  topProducts: Array<{
+    name: string;
+    units: number;
+    revenue: number;
+    orderCount: number;
+  }>;
+}
+
 export default function AnalyticsPage() {
   const { token } = useAuthStore();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ManufacturerAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchAnalytics = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/manufacturer/analytics`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setData(await res.json());
+        if (res.ok && !cancelled) setData(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchAnalytics();
+    return () => { cancelled = true; };
   }, [token]);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading analytics...</div>;
@@ -118,7 +139,7 @@ export default function AnalyticsPage() {
         <Card variant="default" padding="lg" className={styles.chartCard}>
           <h3 className={styles.chartTitle}>Top Products</h3>
           <div className={styles.productList}>
-            {(analytics.topProducts || []).map((product: any, i: number) => (
+            {(analytics.topProducts || []).map((product: { name: string; units: number; revenue: number; orderCount: number }, i: number) => (
               <div key={i} className={styles.productRow}>
                 <div className={styles.productInfo}>
                   <span className={styles.productName}>{product.name}</span>

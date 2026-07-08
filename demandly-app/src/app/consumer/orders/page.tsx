@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './orders.module.css';
@@ -22,18 +22,53 @@ const statusConfig: Record<string, { variant: 'warning' | 'secondary' | 'primary
   'delivered': { variant: 'success', icon: <CheckCircle size={12} />, label: 'Delivered' },
 };
 
+interface Order {
+  id: string;
+  product?: { name: string; image: string; retailPrice: number; unit: string };
+  manufacturer?: { companyName: string; name: string };
+  quantity: number;
+  totalPrice: number;
+  status: string;
+  paymentStatus?: string;
+  trackingId?: string;
+  estimatedDelivery?: string;
+  createdAt: string;
+  pricePerUnit?: number;
+  paymentMethod?: string;
+}
+
+interface Subscription {
+  id: string;
+  product?: { name: string };
+  manufacturer?: { companyName: string; name: string };
+  monthlyQuantity: number;
+  pricePerMonth: number;
+  status: string;
+  nextDelivery: string;
+  deliveriesCompleted: number;
+  totalDeliveries: number;
+}
+
+interface Data {
+  orders: Order[];
+  subscriptions: Subscription[];
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [data, setData] = useState<any>({ orders: [], subscriptions: [] });
+  const [data, setData] = useState<Data>({ orders: [], subscriptions: [] });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'orders' | 'subscriptions'>('orders');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
-    if (!token) { setLoading(false); return; }
+  const fetchOrders = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/consumer/orders`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -44,11 +79,16 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    fetchOrders();
-  }, [token]);
+    let cancelled = false;
+    const doFetch = async () => {
+      await fetchOrders();
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [fetchOrders]);
 
   const handleConfirmCOD = async (orderId: string) => {
     setConfirmingId(orderId);
@@ -61,13 +101,13 @@ export default function OrdersPage() {
       addToast({ type: 'success', title: 'Order Confirmed!', message: 'Your Cash on Delivery order has been placed.' });
       fetchOrders();
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Error', message: error.message });
+      addToast({ type: 'error', title: 'Error', message: error.message || 'Failed to confirm order' });
     } finally {
       setConfirmingId(null);
     }
   };
 
-  const handlePayOnline = async (order: any) => {
+  const handlePayOnline = async (order: Order) => {
     setPayingId(order.id);
     try {
       const res = await fetch(`${API_URL}/payment/create-order`, {
@@ -94,7 +134,7 @@ export default function OrdersPage() {
         name: data.name,
         description: data.description,
         order_id: data.orderId,
-        handler: async function (response: any) {
+        handler: async function (response: { razorpay_payment_id: string; razorpay_signature: string }) {
           try {
             const verifyRes = await fetch(`${API_URL}/payment/verify`, {
               method: 'POST',
@@ -112,8 +152,8 @@ export default function OrdersPage() {
             addToast({ type: 'success', title: 'Payment Successful!', message: 'Your order is now confirmed.' });
             router.push(`/consumer/payment/success?orderId=${order.id}`);
           } catch (err: any) {
-            addToast({ type: 'error', title: 'Payment Error', message: err.message });
-            router.push(`/consumer/payment/failed?orderId=${order.id}&error=${encodeURIComponent(err.message)}`);
+            addToast({ type: 'error', title: 'Payment Error', message: err.message || 'Payment failed' });
+            router.push(`/consumer/payment/failed?orderId=${order.id}&error=${encodeURIComponent(err.message || 'Payment failed')}`);
           }
         },
         prefill: {
@@ -125,11 +165,11 @@ export default function OrdersPage() {
         },
       };
 
-      const paymentObject = new (window as any).Razorpay(options);
+      const paymentObject = new window.Razorpay(options);
       paymentObject.open();
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Error', message: error.message });
-      router.push(`/consumer/payment/failed?orderId=${order.id}&error=${encodeURIComponent(error.message)}`);
+      addToast({ type: 'error', title: 'Error', message: error.message || 'Payment order creation failed' });
+      router.push(`/consumer/payment/failed?orderId=${order.id}&error=${encodeURIComponent(error.message || 'Payment order creation failed')}`);
     } finally {
       setPayingId(null);
     }
@@ -155,9 +195,9 @@ export default function OrdersPage() {
 
       {tab === 'orders' && (
         <div className={styles.list}>
-          {(data.orders || []).map((order: any) => {
+          {(data.orders || []).map((order: Order) => {
             const config = statusConfig[order.status] || { variant: 'default' as const, icon: null, label: order.status };
-            const estDate = new Date(order.estimatedDelivery).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+            const estDate = order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
 
             return (
               <Card key={order.id} variant="default" padding="md" className={styles.card}>
@@ -165,7 +205,7 @@ export default function OrdersPage() {
                   <div className={styles.info}>
                     <h3 className={styles.productName}>{order.product?.name}</h3>
                     <p className={styles.meta}>
-                      {order.quantity} {order.product?.unit} · {formatCurrency(order.pricePerUnit)}/{order.product?.unit} · Total: <strong>{formatCurrency(order.totalPrice)}</strong>
+                      {order.quantity} {order.product?.unit} · {formatCurrency(order.pricePerUnit || 0)}/{order.product?.unit} · Total: <strong>{formatCurrency(order.totalPrice)}</strong>
                     </p>
                   </div>
                   <Badge variant={config.variant} size="sm">{config.icon} {config.label}</Badge>
@@ -178,7 +218,7 @@ export default function OrdersPage() {
                   </div>
                   <div className={styles.detailItem}>
                     <Clock size={14} />
-                    <span>Est. delivery: <strong>{estDate}</strong></span>
+                    <span>Est. delivery: <strong>{estDate || 'Pending'}</strong></span>
                   </div>
                   {order.trackingId && (
                     <div className={styles.detailItem}>
@@ -257,7 +297,7 @@ export default function OrdersPage() {
 
       {tab === 'subscriptions' && (
         <div className={styles.list}>
-          {(data.subscriptions || []).map((sub: any) => {
+          {(data.subscriptions || []).map((sub: Subscription) => {
             const nextDate = new Date(sub.nextDelivery).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
             return (
               <Card key={sub.id} variant="default" padding="md" className={styles.card}>

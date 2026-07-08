@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
+import { config } from '../config';
 
 export const verifyAuth = (req: Request, res: Response, next: NextFunction): any => {
   try {
@@ -11,9 +10,9 @@ export const verifyAuth = (req: Request, res: Response, next: NextFunction): any
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, config.jwtSecret) as any;
     
-    (req as any).user = decoded; // { id, role }
+    (req as any).user = decoded;
     next();
   } catch (error) {
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
@@ -34,3 +33,18 @@ export const requireRole = (roles: string | string[]) => {
   };
 };
 
+export const apiKeyAuth = (req: Request, res: Response, next: NextFunction): void => {
+  const apiKey = req.header('x-api-key');
+
+  if (!apiKey) {
+    res.status(401).json({ error: 'Access denied. No API key provided.' });
+    return;
+  }
+
+  if (apiKey !== config.masterApiKey) {
+    res.status(403).json({ error: 'Invalid API key.' });
+    return;
+  }
+
+  next();
+};

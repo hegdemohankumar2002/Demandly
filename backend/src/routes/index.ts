@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { apiKeyAuth } from '../middlewares/auth';
+import { authLimiter } from '../middlewares/rateLimiter';
 import authRouter from './auth';
 import manufacturerRouter from './manufacturer';
 import consumerRouter from './consumer';
@@ -7,26 +9,28 @@ import publicRouter from './public';
 import notificationsRouter from './notifications';
 import paymentRouter from './payment';
 import uploadRouter from './upload';
-// We'll apply apiKeyAuth conditionally or differently if needed, 
-// since auth routes usually shouldn't require an api key if they are public.
-// But for now, we can leave it or remove it. Let's remove the global apiKeyAuth 
-// and only apply it to specific routes later, or just keep it and ensure the frontend sends the key.
 
 const router = Router();
+const v1Router = Router();
 
-// router.use(apiKeyAuth); // commented out to allow public login/register
+// All routes under /api/v1/*
 
-router.get('/health', (req: Request, res: Response) => {
+// Public routes (still versioned per design decision)
+v1Router.use('/auth', authLimiter, authRouter);
+v1Router.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running and accessible.' });
 });
 
-router.use('/auth', authRouter);
-router.use('/manufacturer', manufacturerRouter);
-router.use('/consumer', consumerRouter);
-router.use('/admin', adminRouter);
-router.use('/public', publicRouter);
-router.use('/notifications', notificationsRouter);
-router.use('/payment', paymentRouter);
-router.use('/upload', uploadRouter);
+// Protected routes with API key auth
+v1Router.use(apiKeyAuth);
+v1Router.use('/manufacturer', manufacturerRouter);
+v1Router.use('/consumer', consumerRouter);
+v1Router.use('/admin', adminRouter);
+v1Router.use('/public', publicRouter);
+v1Router.use('/notifications', notificationsRouter);
+v1Router.use('/payment', paymentRouter);
+v1Router.use('/upload', uploadRouter);
+
+router.use('/api/v1', v1Router);
 
 export default router;

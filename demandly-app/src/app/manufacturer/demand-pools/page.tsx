@@ -15,28 +15,52 @@ import { Factory, MapPin, ExternalLink, ArrowUpDown, Filter } from 'lucide-react
 
 const statusFilters = ['All', 'auction_active', 'aggregating', 'threshold_met'];
 
+interface DemandPool {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    unit: string;
+  };
+  geography: string;
+  pincode: string;
+  status: string;
+  totalDemand: number;
+  threshold: number;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount: number;
+  deadline: string;
+}
+
 export default function DemandPoolsPage() {
   const { token } = useAuthStore();
   const [filter, setFilter] = useState('All');
   const [sort, setSort] = useState<'demandDesc' | 'deadlineAsc'>('demandDesc');
-  const [pools, setPools] = useState<any[]>([]);
+  const [pools, setPools] = useState<DemandPool[]>([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchPools = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/manufacturer/demand-pools`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setPools(await res.json());
+        if (res.ok && !cancelled) setPools(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchPools();
+    return () => { cancelled = true; };
   }, [token]);
 
   const filteredPools = pools

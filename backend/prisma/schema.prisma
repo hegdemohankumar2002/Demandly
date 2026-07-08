@@ -38,6 +38,8 @@ model User {
   orders         Order[]        @relation("ManufacturerOrders")
   consumerOrders Order[]        @relation("ConsumerOrders")
   productProposals ProductProposal[]
+
+  @@index([email])
 }
 
 model Product {
@@ -95,6 +97,9 @@ model DemandPool {
   updatedAt       DateTime @updatedAt
 
   bids            Bid[]
+
+  @@index([status, createdAt])
+  @@index([pincode, productId])
 }
 
 model Bid {
@@ -108,6 +113,8 @@ model Bid {
   qualityCertifications String[]
   status                String     // 'submitted' | 'leading' | 'outbid' | 'won' | 'lost'
   submittedAt           DateTime   @default(now())
+
+  @@index([status, submittedAt])
 }
 
 model Subscription {
@@ -162,6 +169,8 @@ model Order {
   paymentOrderId    String?   // Razorpay order ID
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  @@index([status, createdAt])
 }
 
 model FlashEvent {

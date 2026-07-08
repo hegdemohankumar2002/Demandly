@@ -2,16 +2,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import styles from './Navbar.module.css';
 import { cn, getRelativeTime } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
+import type { Notification } from '@/types';
 import { useNotificationStore } from '@/stores/notificationStore';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { useTheme } from '@/context/ThemeContext';
 import {
-  Zap, Bell, User, LogOut, Menu, X,
+  Bell, User, LogOut, Menu, X,
   LayoutDashboard, ShoppingBag, ChevronDown,
   CheckCheck, BellOff, ExternalLink, Sun, Moon,
 } from 'lucide-react';
@@ -25,13 +27,10 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // Use function initializer to avoid hydration mismatch - only true on client
+  const [mounted, setMounted] = useState(() => typeof window !== 'undefined');
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Fetch notifications on mount and poll every 30 seconds
   useEffect(() => {
@@ -51,7 +50,7 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleNotifClick = (n: any) => {
+  const handleNotifClick = (n: Notification) => {
     if (!n.read) markAsRead(n.id, token || undefined);
     setNotifOpen(false);
     if (n.actionUrl) router.push(n.actionUrl);
@@ -62,7 +61,7 @@ export default function Navbar() {
       <div className={styles.inner}>
         {/* Logo */}
         <Link href="/" className={styles.logo}>
-          <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
+          <Image src="/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} priority />
           <span className={styles.logoText}>Demandly</span>
         </Link>
 

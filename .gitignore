@@ -1,38 +1,46 @@
-# Dependencies
+# ─── Dependencies ────────────────────────────────────────
 **/node_modules/
 **/.pnp
 **/.pnp.*
 **/.yarn/*
 
-# Build/Dist outputs
+# ─── Build / Dist outputs ───────────────────────────────
 **/dist/
 **/.next/
 **/out/
 **/build/
 **/*.tsbuildinfo
 
-# Environment variables, credentials, & secrets
+# ─── Environment variables, credentials, & secrets ──────
 **/.env
 **/.env*.local
 **/*.pem
 **/*.key
-CREDENTIALS.md
-credentials.md
-project detail.txt
-project_detail.txt
+docs/CREDENTIALS.md
 
-# Debug & OS files
+# ─── Debug, OS, & IDE files ─────────────────────────────
 .DS_Store
 Thumbs.db
+*.log
 **/npm-debug.log*
 **/yarn-error.log*
-**/test-report.json
-
-# Local configurations & logs
 .vscode/
 .idea/
-*.log
 
-# Sub-repositories
+# ─── Test artifacts ─────────────────────────────────────
+**/test-report.json
+**/performance-report.json
+**/coverage/
+
+# ─── Generated Prisma client ────────────────────────────
+**/generated/prisma/
+
+# ─── Docker overrides ───────────────────────────────────
+docker-compose.override.yml
+
+# ─── Sub-repositories (Flutter mobile app) ──────────────
 Demandly-mobile-main/
 
+# ─── AI / Agent config ──────────────────────────────────
+**/CLAUDE.md
+**/AGENTS.md

@@ -60,7 +60,7 @@ function PaymentFailedContent() {
           color: 'var(--text-secondary)',
           marginBottom: '2rem',
         }}>
-          We couldn't process your payment. Don't worry, no funds were debited.
+          We couldn&apos;t process your payment. Don&apos;t worry, no funds were debited.
         </p>
 
         <div style={{

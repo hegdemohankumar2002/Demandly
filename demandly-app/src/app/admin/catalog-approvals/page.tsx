@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from './approvals.module.css';
 import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -11,19 +11,35 @@ import { API_URL } from '@/lib/api';
 import { Package, Check, X, Search, Factory, DollarSign, Target } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
+interface Proposal {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  proposedPrice: number;
+  unit: string;
+  image?: string;
+  status: string;
+  createdAt: string;
+  manufacturer?: {
+    name: string;
+    companyName?: string;
+  };
+}
+
 export default function CatalogApprovalsPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
   
-  const [proposals, setProposals] = useState<any[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal state
-  const [selectedProposal, setSelectedProposal] = useState<any>(null);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [threshold, setThreshold] = useState('500');
   const [processing, setProcessing] = useState(false);
 
-  const fetchProposals = async () => {
+  const fetchProposals = useCallback(async () => {
     if (!token) return;
     try {
       const res = await fetch(`${API_URL}/admin/proposals/pending`, {
@@ -37,11 +53,16 @@ export default function CatalogApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    fetchProposals();
-  }, [token]);
+    let cancelled = false;
+    const doFetch = async () => {
+      await fetchProposals();
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [fetchProposals]);
 
   const handleApprove = async () => {
     if (!selectedProposal || !threshold) return;
@@ -63,7 +84,7 @@ export default function CatalogApprovalsPage() {
       setSelectedProposal(null);
       fetchProposals();
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Error', message: error.message });
+      addToast({ type: 'error', title: 'Error', message: error.message || 'Failed to approve' });
     } finally {
       setProcessing(false);
     }
@@ -79,7 +100,7 @@ export default function CatalogApprovalsPage() {
       addToast({ type: 'success', title: 'Rejected', message: 'Proposal rejected.' });
       fetchProposals();
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Error', message: error.message });
+      addToast({ type: 'error', title: 'Error', message: error.message || 'Failed to reject' });
     }
   };
 
@@ -98,7 +119,7 @@ export default function CatalogApprovalsPage() {
             <div className={styles.empty}>
               <Search size={48} />
               <h3>No Pending Proposals</h3>
-              <p>Manufacturers haven't submitted any new products recently.</p>
+              <p>Manufacturers haven&apos;t submitted any new products recently.</p>
             </div>
           ) : (
             <div className={styles.tableWrapper}>
@@ -125,7 +146,7 @@ export default function CatalogApprovalsPage() {
                       <td>
                         <div className={styles.mfgCell}>
                           <Factory size={14} />
-                          <span>{p.manufacturer.companyName || p.manufacturer.name}</span>
+                          <span>{p.manufacturer?.companyName || p.manufacturer?.name || 'Unknown Manufacturer'}</span>
                         </div>
                       </td>
                       <td className={styles.priceCell}>{formatCurrency(p.proposedPrice)} / {p.unit}</td>

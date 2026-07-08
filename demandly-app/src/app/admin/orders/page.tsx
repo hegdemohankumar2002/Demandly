@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from './orders.module.css';
 import Card, { CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -19,16 +19,33 @@ const statusConfig: Record<string, { variant: 'warning' | 'secondary' | 'primary
   'delivered': { variant: 'success', label: 'Delivered' },
 };
 
+interface Order {
+  id: string;
+  product?: { name: string; category?: string };
+  manufacturer?: { companyName: string; name: string };
+  consumer?: { name: string; email: string; city?: string; pincode?: string };
+  quantity: number;
+  totalPrice: number;
+  status: string;
+  paymentStatus?: string;
+  trackingId?: string;
+  estimatedDelivery?: string;
+  createdAt: string;
+}
+
 export default function AdminOrdersPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
-    if (!token) return;
+  const fetchOrders = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/admin/orders`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -39,11 +56,16 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
-    fetchOrders();
-  }, [token]);
+    let cancelled = false;
+    const doFetch = async () => {
+      await fetchOrders();
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [fetchOrders]);
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
@@ -57,7 +79,7 @@ export default function AdminOrdersPage() {
       addToast({ type: 'success', title: 'Updated', message: `Order status changed to ${newStatus}` });
       fetchOrders();
     } catch (error: any) {
-      addToast({ type: 'error', title: 'Error', message: error.message });
+      addToast({ type: 'error', title: 'Error', message: error.message || 'Failed to update status' });
     } finally {
       setUpdatingId(null);
     }

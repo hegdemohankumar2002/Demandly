@@ -16,6 +16,21 @@ import {
 
 const categories = ['All', 'Groceries', 'Personal Care', 'Home & Living', 'Lifestyle', 'Health'];
 
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  image: string;
+  retailPrice: number;
+  amazonPrice?: number;
+  flipkartPrice?: number;
+  demandCount: number;
+  demandThreshold: number;
+  unit: string;
+  tags: string[];
+}
+
 export default function ProductsPage() {
   const { token } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,7 +47,7 @@ export default function ProductsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Debounce search query
@@ -45,13 +60,14 @@ export default function ProductsPage() {
   }, [searchQuery]);
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
     const fetchProducts = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
-        setLoading(true);
+        if (!cancelled) setLoading(true);
         const queryParams = new URLSearchParams();
         if (search) queryParams.append('search', search);
         if (category && category !== 'All') queryParams.append('category', category);
@@ -64,7 +80,7 @@ export default function ProductsPage() {
         const res = await fetch(`${API_URL}/consumer/products?${queryParams.toString()}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const result = await res.json();
           if (result && result.data) {
             setProducts(result.data);
@@ -80,11 +96,12 @@ export default function ProductsPage() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchProducts();
-  }, [token, search, category, sortBy, minPrice, maxPrice, page, limit]);
+    return () => { cancelled = true; };
+  }, [search, category, sortBy, minPrice, maxPrice, page, token]);
 
   return (
     <div className={styles.page}>

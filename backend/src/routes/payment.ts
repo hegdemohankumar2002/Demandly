@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { verifyAuth } from '../middlewares/auth';
 import crypto from 'crypto';
+import { validate } from '../middlewares/validation';
+import { createPaymentOrderSchema, verifyPaymentSchema } from '../schemas/routes.schema';
 
 const router = Router();
 
@@ -14,10 +16,9 @@ const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'test_secret_plac
  * In production this calls Razorpay's Orders API.
  * In dev/sandbox mode, it creates a mock order.
  */
-router.post('/create-order', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.post('/create-order', verifyAuth, validate(createPaymentOrderSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const { orderId } = req.body;
-    if (!orderId) return res.status(400).json({ error: 'orderId is required' });
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -89,10 +90,9 @@ router.post('/create-order', verifyAuth, async (req: Request, res: Response): Pr
  * Verify payment after Razorpay checkout completes.
  * In production, verifies signature. In sandbox, auto-approves.
  */
-router.post('/verify', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.post('/verify', verifyAuth, validate(verifyPaymentSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const { orderId, paymentId, signature } = req.body;
-    if (!orderId) return res.status(400).json({ error: 'orderId is required' });
 
     const order = await prisma.order.findFirst({
       where: { paymentOrderId: orderId }

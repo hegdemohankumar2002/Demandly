@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from './settings.module.css';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -59,16 +59,19 @@ export default function AdminSettingsPage() {
   const [original, setOriginal] = useState<PlatformSettings>(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchSettings = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/admin/settings`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const data = await res.json();
           setSettings(data);
           setOriginal(data);
@@ -76,17 +79,16 @@ export default function AdminSettingsPage() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchSettings();
+    return () => { cancelled = true; };
   }, [token]);
 
-  useEffect(() => {
-    setHasChanges(JSON.stringify(settings) !== JSON.stringify(original));
-  }, [settings, original]);
+  const hasChanges = useMemo(() => JSON.stringify(settings) !== JSON.stringify(original), [settings, original]);
 
-  const update = (key: keyof PlatformSettings, value: any) => {
+  const update = (key: keyof PlatformSettings, value: string | number | boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Mail, Shield, Check, X, AlertCircle } from 'lucide-react';
 import styles from './GoogleLoginButton.module.css';
 
@@ -15,22 +15,13 @@ export default function GoogleLoginButton({ onSuccess, onError }: GoogleLoginBut
   const [customEmail, setCustomEmail] = useState('');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const btnContainerRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(false);
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
-  useEffect(() => {
-    // Determine if we should use mock or real Google GIS
-    if (clientId && clientId !== 'your-google-client-id') {
-      setUseMock(false);
-      loadGoogleScript();
-    } else {
-      setUseMock(true);
-    }
-  }, [clientId]);
-
-  const loadGoogleScript = () => {
+  const loadGoogleScript = useCallback(() => {
     if (window.google?.accounts?.id) {
-      setScriptLoaded(true);
+      setTimeout(() => { if (mountedRef.current) setScriptLoaded(true); }, 0);
       return;
     }
 
@@ -39,14 +30,25 @@ export default function GoogleLoginButton({ onSuccess, onError }: GoogleLoginBut
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      setScriptLoaded(true);
+      setTimeout(() => { if (mountedRef.current) setScriptLoaded(true); }, 0);
     };
     script.onerror = () => {
       console.warn('Failed to load Google Identity Services script. Falling back to mock mode.');
-      setUseMock(true);
+      setTimeout(() => { if (mountedRef.current) setUseMock(true); }, 0);
     };
     document.head.appendChild(script);
-  };
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (clientId && clientId !== 'your-google-client-id') {
+      setTimeout(() => { if (mountedRef.current) setUseMock(false); }, 0);
+      loadGoogleScript();
+    } else {
+      setTimeout(() => { if (mountedRef.current) setUseMock(true); }, 0);
+    }
+    return () => { mountedRef.current = false; };
+  }, [clientId, loadGoogleScript]);
 
   useEffect(() => {
     if (useMock || !scriptLoaded || !btnContainerRef.current) return;
@@ -54,7 +56,7 @@ export default function GoogleLoginButton({ onSuccess, onError }: GoogleLoginBut
     try {
       window.google.accounts.id.initialize({
         client_id: clientId,
-        callback: (response: any) => {
+        callback: (response: { credential?: string }) => {
           if (response.credential) {
             onSuccess(response.credential);
           } else {
@@ -72,7 +74,7 @@ export default function GoogleLoginButton({ onSuccess, onError }: GoogleLoginBut
       });
     } catch (err: any) {
       console.error('Error initializing real Google GIS:', err);
-      setUseMock(true);
+      setTimeout(() => { if (mountedRef.current) setUseMock(true); }, 0);
     }
   }, [useMock, scriptLoaded, clientId, onSuccess, onError]);
 
@@ -233,6 +235,13 @@ export default function GoogleLoginButton({ onSuccess, onError }: GoogleLoginBut
 // Global declaration for window.google
 declare global {
   interface Window {
-    google: any;
+    google: {
+      accounts: {
+        id: {
+          initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
+          renderButton: (element: HTMLElement, options: { theme: string; size: string; width: number; text: string; shape: string }) => void;
+        };
+      };
+    };
   }
 }

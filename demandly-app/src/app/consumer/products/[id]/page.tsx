@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import styles from './detail.module.css';
@@ -18,13 +18,38 @@ import {
   Star, Shield, MapPin, Minus, Plus, Check,
 } from 'lucide-react';
 
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  image: string;
+  retailPrice: number;
+  amazonPrice?: number;
+  flipkartPrice?: number;
+  demandCount: number;
+  demandThreshold: number;
+  unit: string;
+  tags: string[];
+}
+
+interface Interest {
+  id: string;
+  productId: string;
+  quantity: number;
+  maxPrice: number;
+  timeline: string;
+  status: string;
+  createdAt: string;
+}
+
 export default function ProductDetailPage() {
   const params = useParams();
   const { addToast } = useToast();
   const { token } = useAuthStore();
   
-  const [product, setProduct] = useState<any>(null);
-  const [existingInterest, setExistingInterest] = useState<any>(null);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [existingInterest, setExistingInterest] = useState<Interest | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [quantity, setQuantity] = useState(1);
@@ -105,7 +130,7 @@ export default function ProductDetailPage() {
         message: `You want ${quantity}× ${product.name} at max ${formatCurrency(maxPrice)}`,
       });
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Error', message: err.message });
+      addToast({ type: 'error', title: 'Error', message: err.message || 'Failed to submit' });
     } finally {
       setSubmitting(false);
     }
@@ -138,7 +163,7 @@ export default function ProductDetailPage() {
       });
       setSubModalOpen(false);
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Error', message: err.message });
+      addToast({ type: 'error', title: 'Error', message: err.message || 'Failed to create subscription' });
     } finally {
       setSubSubmitting(false);
     }

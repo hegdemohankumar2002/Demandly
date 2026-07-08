@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './Footer.module.css';
 import { Zap, Globe, MessageSquare, Mail } from 'lucide-react';
 
@@ -13,7 +14,7 @@ export default function Footer() {
           {/* Brand */}
           <div className={styles.brand}>
             <Link href="/" className={styles.logo}>
-              <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
+              <Image src="/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} />
               <span className={styles.logoText}>Demandly</span>
             </Link>
             <p className={styles.tagline}>

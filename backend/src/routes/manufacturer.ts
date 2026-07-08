@@ -3,6 +3,8 @@ import { prisma } from '../db';
 import { verifyAuth, requireRole } from '../middlewares/auth';
 import { cacheGet, cacheInvalidate, setAuctionState } from '../cache/redis';
 import { geocodeFromPincode } from '../utils/geocode';
+import { validate } from '../middlewares/validation';
+import { createBidSchema, proposeProductSchema } from '../schemas/routes.schema';
 
 const router = Router();
 
@@ -194,14 +196,10 @@ router.get('/demand-pools/:id', verifyAuth, async (req: Request, res: Response):
 });
 
 // Submit a Bid
-router.post('/bids', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.post('/bids', verifyAuth, validate(createBidSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
     const { demandPoolId, pricePerUnit, deliveryTimeline } = req.body;
-
-    if (!demandPoolId || !pricePerUnit) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
 
     const mfg = await prisma.user.findUnique({ where: { id: manufacturerId } });
     if (!mfg || !mfg.verified) {
@@ -568,14 +566,10 @@ router.get('/analytics', verifyAuth, async (req: Request, res: Response): Promis
 // ──────────────────────────────────────────────
 
 // Submit a new product proposal
-router.post('/proposals', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.post('/proposals', verifyAuth, validate(proposeProductSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const manufacturerId = (req as any).user.id;
     const { name, description, category, proposedPrice, unit, image } = req.body;
-
-    if (!name || !description || !category || !proposedPrice || !unit) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
 
     const mfg = await prisma.user.findUnique({ where: { id: manufacturerId } });
     if (!mfg || !mfg.verified) {

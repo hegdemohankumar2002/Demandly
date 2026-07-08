@@ -14,10 +14,23 @@ import { MessageSquare, ThumbsUp, Plus, Users, Lightbulb, TrendingUp, CheckCircl
 
 const statusFilters = ['All', 'voting', 'approved', 'in_production', 'completed'];
 
+interface Campaign {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  votes: number;
+  totalVotes: number;
+  author: { name: string; avatar?: string; city?: string };
+  status: string;
+  createdAt: string;
+  comments: number;
+}
+
 export default function CommunityPage() {
   const { token, user } = useAuthStore();
   const { addToast } = useToast();
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [voting, setVoting] = useState<string | null>(null);
@@ -26,17 +39,19 @@ export default function CommunityPage() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchCampaigns = async () => {
       try {
         const res = await fetch(`${API_URL}/consumer/campaigns`);
-        if (res.ok) setCampaigns(await res.json());
+        if (res.ok && !cancelled) setCampaigns(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchCampaigns();
+    return () => { cancelled = true; };
   }, []);
 
   const handleVote = async (campaignId: string) => {

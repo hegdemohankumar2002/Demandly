@@ -1,20 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter, Outfit } from 'next/font/google';
 import './globals.css';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ThemeProvider } from '@/context/ThemeContext';
-
-const inter = Inter({
-  variable: '--font-body',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const outfit = Outfit({
-  variable: '--font-display',
-  subsets: ['latin'],
-  display: 'swap',
-});
+import { QueryProvider } from '@/components/providers/QueryProvider';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'Demandly — Stop Overpaying. Start Demanding.',
@@ -29,15 +18,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
+    <html lang="en">
       <body>
         <ThemeProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <QueryProvider>
+            <ToastProvider>
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </ToastProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
-

@@ -10,23 +10,56 @@ import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
 import { User, Building2, MapPin, Phone, Mail, Shield, Star, Save, Award } from 'lucide-react';
 
+interface ManufacturerProfile {
+  id?: string;
+  name: string;
+  email: string;
+  companyName: string;
+  city: string;
+  pincode: string;
+  phone: string;
+  category: string[];
+  certifications: string[];
+  rating: number;
+  verified: boolean;
+  totalOrders: number;
+  revenue: number;
+}
+
 export default function ProfilePage() {
   const { token, user } = useAuthStore();
   const { addToast } = useToast();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ManufacturerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<ManufacturerProfile>({
+    name: '',
+    email: '',
+    companyName: '',
+    city: '',
+    pincode: '',
+    phone: '',
+    category: [],
+    certifications: [],
+    rating: 0,
+    verified: false,
+    totalOrders: 0,
+    revenue: 0
+  });
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchProfile = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/manufacturer/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const data = await res.json();
           setProfile(data);
           setFormData(data);
@@ -34,10 +67,11 @@ export default function ProfilePage() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchProfile();
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleSave = async () => {

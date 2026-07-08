@@ -143,3 +143,9 @@ export async function getAuctionState(
 }
 
 export { isConnected as redisConnected };
+
+export async function closeRedisConnection() {
+  if (redis) {
+    await redis.quit();
+  }
+}

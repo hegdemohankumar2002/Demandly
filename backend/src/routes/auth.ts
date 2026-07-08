@@ -5,18 +5,33 @@ import { prisma } from '../db';
 import { OAuth2Client } from 'google-auth-library';
 import { sendOtp, verifyOtp } from '../utils/otp';
 import { verifyAuth } from '../middlewares/auth';
+import { config } from '../config';
+import { validate } from '../middlewares/validation';
+import { registerSchema, loginSchema } from '../schemas/auth.schema';
 
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-dev';
 
-router.post('/register', async (req: Request, res: Response): Promise<any> => {
+const generateAccessToken = (user: { id: string; role: string }) => {
+  return jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, { expiresIn: '15m' });
+};
+
+const generateRefreshToken = (user: { id: string; role: string }) => {
+  return jwt.sign({ id: user.id, role: user.role }, config.jwtSecret, { expiresIn: '7d' });
+};
+
+const setRefreshTokenCookie = (res: Response, token: string) => {
+  res.cookie('refreshToken', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  });
+};
+
+router.post('/register', validate(registerSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const { name, email, password, role, pincode, city, phone } = req.body;
-
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
-    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -37,7 +52,9 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshTokenCookie(res, refreshToken);
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
@@ -50,13 +67,9 @@ router.post('/register', async (req: Request, res: Response): Promise<any> => {
 });
 
 
-router.post('/login', async (req: Request, res: Response): Promise<any> => {
+router.post('/login', validate(loginSchema), async (req: Request, res: Response): Promise<any> => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.password) {
@@ -131,7 +144,9 @@ router.post('/google', async (req: Request, res: Response): Promise<any> => {
     // Check if user already exists
     const user = await prisma.user.findUnique({ where: { email } });
     if (user) {
-      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+      const token = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
+      setRefreshTokenCookie(res, refreshToken);
       const { password: _, ...userWithoutPassword } = user;
       return res.status(200).json({ user: userWithoutPassword, token });
     }
@@ -175,7 +190,9 @@ router.post('/google', async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    const token = jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = generateAccessToken(newUser);
+    const refreshToken = generateRefreshToken(newUser);
+    setRefreshTokenCookie(res, refreshToken);
     const { password: _, ...userWithoutPassword } = newUser;
     return res.status(201).json({ user: userWithoutPassword, token });
   } catch (error) {
@@ -244,7 +261,9 @@ router.post('/login/verify', async (req: Request, res: Response): Promise<any> =
       return res.status(400).json({ error: 'Invalid or expired 2FA code' });
     }
 
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshTokenCookie(res, refreshToken);
     const { password: _, ...userWithoutPassword } = user;
     return res.status(200).json({ user: userWithoutPassword, token });
   } catch (error) {
@@ -371,6 +390,42 @@ router.delete('/account', verifyAuth, async (req: Request, res: Response): Promi
     console.error('Delete account error:', error);
     return res.status(500).json({ error: 'Failed to delete account' });
   }
+});
+
+// Refresh Access Token
+router.post('/refresh', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Access denied. No refresh token provided.' });
+    }
+
+    const decoded = jwt.verify(refreshToken, config.jwtSecret) as any;
+    
+    // Check if user still exists in database
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid refresh token. User not found.' });
+    }
+
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+    setRefreshTokenCookie(res, newRefreshToken);
+
+    return res.status(200).json({ token: newAccessToken });
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid or expired refresh token' });
+  }
+});
+
+// Logout (Clear cookies)
+router.post('/logout', (req: Request, res: Response) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+  return res.status(200).json({ message: 'Logged out successfully' });
 });
 
 export default router;

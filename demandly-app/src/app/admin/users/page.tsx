@@ -9,28 +9,49 @@ import { API_URL } from '@/lib/api';
 import { getRelativeTime } from '@/lib/utils';
 import { Users as UsersIcon, Search, User, Building2, Shield } from 'lucide-react';
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'consumer' | 'manufacturer' | 'admin';
+  city?: string;
+  pincode?: string;
+  isActive?: boolean;
+  verified?: boolean;
+  createdAt: string;
+  _count?: {
+    interests: number;
+    bids: number;
+  };
+}
+
 export default function UsersPage() {
   const { token } = useAuthStore();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchUsers = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/admin/users`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setUsers(await res.json());
+        if (res.ok && !cancelled) setUsers(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchUsers();
+    return () => { cancelled = true; };
   }, [token]);
 
   const filtered = users
@@ -94,9 +115,9 @@ export default function UsersPage() {
                 <td><span className={styles.location}>{user.city || '—'}{user.pincode ? ` (${user.pincode})` : ''}</span></td>
                 <td>
                   <span className={styles.activity}>
-                    {user._count?.interests > 0 && `${user._count.interests} interests`}
-                    {user._count?.bids > 0 && ` · ${user._count.bids} bids`}
-                    {(!user._count?.interests && !user._count?.bids) && '—'}
+                    {(user._count?.interests ?? 0) > 0 && `${user._count?.interests} interests`}
+                    {(user._count?.bids ?? 0) > 0 && ` · ${user._count?.bids} bids`}
+                    {((user._count?.interests ?? 0) === 0 && (user._count?.bids ?? 0) === 0) && '—'}
                   </span>
                 </td>
                 <td>

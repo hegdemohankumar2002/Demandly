@@ -14,11 +14,28 @@ import dynamic from 'next/dynamic';
 
 const TrackingMap = dynamic(() => import('@/components/maps/TrackingMap'), { ssr: false });
 
+interface TrackingOrder {
+  id: string;
+  product?: { name: string };
+  status: string;
+  quantity: number;
+  totalPrice: number;
+  trackingId?: string;
+  paymentStatus?: string;
+  estimatedDelivery: string;
+  originLat?: number;
+  originLng?: number;
+  destLat?: number;
+  destLng?: number;
+  currentLat?: number;
+  currentLng?: number;
+}
+
 export default function TrackingPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [orders, setOrders] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any>(null);
+  const [orders, setOrders] = useState<TrackingOrder[]>([]);
+  const [selected, setSelected] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [simulating, setSimulating] = useState(false);
 
@@ -32,20 +49,26 @@ export default function TrackingPage() {
         const data = await res.json();
         setOrders(data);
         if (data.length > 0 && !selected) setSelected(data[0]);
-        // Refresh selected if it exists
         if (selected) {
-          const updated = data.find((o: any) => o.id === selected.id);
+          const updated = data.find((o: TrackingOrder) => o.id === selected.id);
           if (updated) setSelected(updated);
         }
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      console.error('Failed to fetch orders');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, selected]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { 
+    let cancelled = false;
+    const doFetch = async () => {
+      await fetchOrders();
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [fetchOrders]);
 
   const getStepIndex = (status: string) => {
     const steps = ['confirmed', 'manufacturing', 'shipped', 'delivered'];
@@ -54,8 +77,8 @@ export default function TrackingPage() {
 
   // Simulate GPS movement along the route (dev tool)
   const simulateGPS = async () => {
-    if (!selected || !selected.originLat || !selected.destLat) {
-      addToast({ type: 'error', title: 'Cannot simulate', message: 'Order needs origin/destination coordinates. Mark as shipped first.' });
+    if (!selected || selected.currentLat === undefined || selected.currentLng === undefined || selected.destLat === undefined || selected.destLng === undefined) {
+      addToast({ type: 'error', title: 'Cannot simulate', message: 'Order needs origin/destination/current coordinates. Mark as shipped first.' });
       return;
     }
     setSimulating(true);
@@ -75,9 +98,9 @@ export default function TrackingPage() {
         addToast({ type: 'success', title: 'GPS Updated', message: `Moved to ${newLat.toFixed(4)}, ${newLng.toFixed(4)}` });
         fetchOrders();
       }
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error', message: 'Failed to update GPS' });
-    } finally {
+} catch {
+        addToast({ type: 'error', title: 'Error', message: 'Failed to update GPS' });
+      } finally {
       setSimulating(false);
     }
   };
@@ -125,9 +148,9 @@ export default function TrackingPage() {
               {/* Map */}
               <Card variant="default" padding="none" className={styles.mapCard}>
                 <TrackingMap
-                  origin={selected.originLat ? { lat: selected.originLat, lng: selected.originLng } : null}
-                  destination={selected.destLat ? { lat: selected.destLat, lng: selected.destLng } : null}
-                  current={selected.currentLat ? { lat: selected.currentLat, lng: selected.currentLng } : null}
+                  origin={selected.originLat && selected.originLng ? { lat: selected.originLat, lng: selected.originLng } : null}
+                  destination={selected.destLat && selected.destLng ? { lat: selected.destLat, lng: selected.destLng } : null}
+                  current={selected.currentLat && selected.currentLng ? { lat: selected.currentLat, lng: selected.currentLng } : null}
                   status={selected.status}
                   height="350px"
                 />

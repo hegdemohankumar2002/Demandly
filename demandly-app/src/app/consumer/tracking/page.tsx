@@ -7,16 +7,36 @@ import Badge from '@/components/ui/Badge';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
-import { Navigation, Package, Truck, CheckCircle, Factory, CreditCard, MapPin, Clock } from 'lucide-react';
+import { Navigation, Package, Truck, CheckCircle, Factory, MapPin } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const TrackingMap = dynamic(() => import('@/components/maps/TrackingMap'), { ssr: false });
 
+interface TrackingOrder {
+  id: string;
+  product?: { name: string; unit: string };
+  manufacturer?: { name: string; companyName?: string };
+  status: string;
+  quantity: number;
+  totalPrice: number;
+  trackingId?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  deliveredAt?: string;
+  estimatedDelivery: string;
+  originLat?: number;
+  originLng?: number;
+  destLat?: number;
+  destLng?: number;
+  currentLat?: number;
+  currentLng?: number;
+}
+
 export default function ConsumerTrackingPage() {
   const { token } = useAuthStore();
-  const [orders, setOrders] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any>(null);
+  const [orders, setOrders] = useState<TrackingOrder[]>([]);
+  const [selected, setSelected] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = useCallback(async () => {
@@ -29,24 +49,31 @@ export default function ConsumerTrackingPage() {
         const data = await res.json();
         // Only show orders that have progressed past confirmation
         const trackable = (data.orders || []).filter(
-          (o: any) => ['confirmed', 'manufacturing', 'shipped', 'delivered'].includes(o.status)
+          (o: TrackingOrder) => ['confirmed', 'manufacturing', 'shipped', 'delivered'].includes(o.status)
         );
         setOrders(trackable);
         // Pre-select from URL param or first order
         const params = new URLSearchParams(window.location.search);
         const orderId = params.get('order');
-        const match = trackable.find((o: any) => o.id === orderId);
+        const match = trackable.find((o: TrackingOrder) => o.id === orderId);
         if (match) setSelected(match);
         else if (trackable.length > 0 && !selected) setSelected(trackable[0]);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      console.error('Failed to fetch orders');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, selected]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    let cancelled = false;
+    const doFetch = async () => {
+      await fetchOrders();
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [fetchOrders]);
 
   // Auto-refresh GPS every 30s for shipped orders
   useEffect(() => {
@@ -109,9 +136,9 @@ export default function ConsumerTrackingPage() {
               {/* Map */}
               <Card variant="default" padding="none" className={styles.mapCard}>
                 <TrackingMap
-                  origin={selected.originLat ? { lat: selected.originLat, lng: selected.originLng } : null}
-                  destination={selected.destLat ? { lat: selected.destLat, lng: selected.destLng } : null}
-                  current={selected.currentLat ? { lat: selected.currentLat, lng: selected.currentLng } : null}
+                  origin={selected.originLat && selected.originLng ? { lat: selected.originLat, lng: selected.originLng } : null}
+                  destination={selected.destLat && selected.destLng ? { lat: selected.destLat, lng: selected.destLng } : null}
+                  current={selected.currentLat && selected.currentLng ? { lat: selected.currentLat, lng: selected.currentLng } : null}
                   status={selected.status}
                   height="380px"
                 />

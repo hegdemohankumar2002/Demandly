@@ -1,10 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { emitNotificationCreated } from './utils/events';
 
-// Initialize Prisma Client with the pg adapter
 const connectionString = `${process.env.DATABASE_URL}`;
-const pool = new Pool({ connectionString });
+const pool = new Pool({ 
+  connectionString,
+  max: parseInt(process.env.DATABASE_POOL_SIZE || '20', 10),
+});
 const adapter = new PrismaPg(pool);
 const basePrisma = new PrismaClient({ adapter });
 
@@ -14,14 +17,21 @@ export const prisma = basePrisma.$extends({
       async create({ args, query }) {
         const result = await query(args);
         if (result && result.userId) {
-          const { sendPushNotification } = require('./services/pushNotificationService');
-          sendPushNotification(result.userId, result.title, result.message, {
-            type: result.type,
-            actionUrl: result.actionUrl || ''
-          }).catch((err: any) => console.error('Error sending push notification:', err));
+          emitNotificationCreated({
+            userId: result.userId,
+            title: result.title || '',
+            message: result.message || '',
+            type: result.type || '',
+            actionUrl: result.actionUrl || '',
+          });
         }
         return result;
       }
     }
   }
 });
+
+export async function closeDatabaseConnections() {
+  await prisma.$disconnect();
+  await pool.end();
+}

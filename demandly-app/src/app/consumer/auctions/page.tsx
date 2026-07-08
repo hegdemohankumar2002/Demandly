@@ -6,30 +6,45 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import CountdownTimer from '@/components/ui/CountdownTimer';
-import ProgressRing from '@/components/ui/ProgressRing';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import { Gavel, MapPin, Package, TrendingDown, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
+interface DemandPool {
+  id: string;
+  product?: { name: string; category: string; unit: string; retailPrice: number };
+  geography: string;
+  pincode: string;
+  status: string;
+  totalDemand: number;
+  threshold: number;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount: number;
+  deadline: string;
+}
+
 export default function AuctionsPage() {
   const { token } = useAuthStore();
-  const [pools, setPools] = useState<any[]>([]);
+  const [pools, setPools] = useState<DemandPool[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchPools = async () => {
       try {
         const res = await fetch(`${API_URL}/consumer/demand-pools/active`);
-        if (res.ok) setPools(await res.json());
+        if (res.ok && !cancelled) setPools(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchPools();
+    return () => { cancelled = true; };
   }, []);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading auctions...</div>;

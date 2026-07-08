@@ -13,26 +13,41 @@ import { formatCurrency } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import { Zap, Users, TrendingDown, Flame, Plus, Minus } from 'lucide-react';
 
+interface FlashEvent {
+  id: string;
+  product?: { name: string; category: string; image: string; unit: string; retailPrice: number };
+  targetUnits: number;
+  currentUnits: number;
+  pricePerUnit: number;
+  retailPrice: number;
+  savingsPercent: number;
+  endsAt: string;
+  status: string;
+  tiers: { units: number; price: number; label: string }[] | string;
+}
+
 export default function FlashEventsPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<FlashEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [joining, setJoining] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchEvents = async () => {
       try {
         const res = await fetch(`${API_URL}/consumer/flash-events`);
-        if (res.ok) setEvents(await res.json());
+        if (res.ok && !cancelled) setEvents(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchEvents();
+    return () => { cancelled = true; };
   }, []);
 
   const handleJoin = async (eventId: string) => {
@@ -114,7 +129,7 @@ export default function FlashEventsPage() {
               {/* Tier Pricing */}
               {tiers && tiers.length > 0 && (
                 <div className={styles.tiers}>
-                  {tiers.map((tier: any, i: number) => (
+                  {tiers.map((tier: { label: string; units: number; price: number }, i: number) => (
                     <div key={i} className={`${styles.tier} ${event.currentUnits >= tier.units ? styles.tierUnlocked : ''}`}>
                       <span className={styles.tierLabel}>{tier.label}</span>
                       <span className={styles.tierInfo}>{tier.units}+ units → {formatCurrency(tier.price)}</span>

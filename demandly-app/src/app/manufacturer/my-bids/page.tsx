@@ -11,29 +11,49 @@ import { formatCurrency, getStatusLabel, getRelativeTime } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import { FileText, MapPin, ExternalLink, Filter } from 'lucide-react';
 
-const statusFilters = ['All', 'leading', 'outbid', 'won', 'lost'];
+const statusFilters = ['All', 'pending', 'won', 'lost'];
+
+interface Bid {
+  id: string;
+  demandPoolId: string;
+  status: string;
+  pricePerUnit: number;
+  deliveryTimeline: string;
+  submittedAt: string;
+  demandPool: {
+    product: { name: string };
+    geography: string;
+    totalDemand: number;
+    bestBidPrice?: number;
+  };
+}
 
 export default function MyBidsPage() {
   const { token } = useAuthStore();
   const [filter, setFilter] = useState('All');
-  const [bids, setBids] = useState<any[]>([]);
+  const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchBids = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/manufacturer/bids`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setBids(await res.json());
+        if (res.ok && !cancelled) setBids(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchBids();
+    return () => { cancelled = true; };
   }, [token]);
   
   const filteredBids = filter === 'All'

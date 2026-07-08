@@ -10,31 +10,50 @@ import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
 import { Shield, CheckCircle, XCircle, Building2, MapPin, Calendar } from 'lucide-react';
 
+interface ManufacturerUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  companyName?: string;
+  city?: string;
+  pincode?: string;
+  category?: string[];
+  certifications?: string[];
+  verified: boolean;
+  createdAt: string;
+}
+
 export default function VerificationsPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<ManufacturerUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchUsers = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/admin/users`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const all = await res.json();
-          setUsers(all.filter((u: any) => u.role === 'manufacturer'));
+          setUsers(all.filter((u: ManufacturerUser) => u.role === 'manufacturer'));
         }
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchUsers();
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleAction = async (userId: string, action: 'approve' | 'reject') => {

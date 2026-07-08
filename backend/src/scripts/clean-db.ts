@@ -54,6 +54,7 @@ async function main() {
     await prisma.notification.deleteMany({});
 
     console.log(' Deleting Products...');
+    await prisma.flashEvent.deleteMany({});
     await prisma.product.deleteMany({});
 
     console.log(' Deleting OTP codes...');

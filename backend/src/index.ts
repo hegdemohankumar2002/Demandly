@@ -1,13 +1,17 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { globalLimiter } from './middlewares/rateLimiter';
 import { config } from './config';
 import routes from './routes';
 import { startCronJobs } from './cron/auctionCron';
 import { getRedis } from './cache/redis';
 import { initLogger } from './utils/logger';
 import { initFcm } from './services/pushNotificationService';
+import { errorHandler } from './middlewares/errorHandler';
+import { setupGracefulShutdown } from './utils/gracefulShutdown';
+import { requestIdMiddleware } from './middlewares/requestId';
 
 // Initialize Sentry / Logging
 initLogger();
@@ -18,9 +22,7 @@ const app = express();
 // Security Middlewares
 app.use(helmet());
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:3001'];
+const allowedOrigins = config.allowedOrigins;
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -35,18 +37,20 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
+app.use(cookieParser());
+
+// Request ID tracing
+app.use(requestIdMiddleware);
 
 // Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5000, // limit each IP to 5000 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
+app.use(globalLimiter);
 
 // Routes
-app.use('/api', routes);
+app.use('/', routes);
+
+// Centralized error handling middleware
+app.use(errorHandler);
 
 // Base route for LB healthcheck without auth
 app.get('/lb-health', (req, res) => {
@@ -57,11 +61,13 @@ app.get('/lb-health', (req, res) => {
   });
 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`Server is running on port ${config.port}`);
   // Initialize Redis connection
   getRedis();
   // Start background jobs
   startCronJobs();
 });
+
+setupGracefulShutdown(server);
 

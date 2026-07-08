@@ -3,6 +3,9 @@ import { prisma } from '../db';
 import { resolveAuction } from '../utils/auction';
 import { processActiveSubscriptions } from './subscriptionCron';
 
+let subscriptionJob: any = null;
+let auctionJob: any = null;
+
 /**
  * Auction Auto-Close Cron Job
  * Runs every 5 minutes to:
@@ -16,12 +19,12 @@ export function startCronJobs() {
   console.log('[CRON] Subscription manager job scheduled (every 10 minutes)');
 
   // ── Every 10 minutes: process active subscriptions ──
-  cron.schedule('*/10 * * * *', async () => {
+  subscriptionJob = cron.schedule('*/10 * * * *', async () => {
     await processActiveSubscriptions();
   });
 
   // ── Every 5 minutes: close expired auctions and failed aggregations ──
-  cron.schedule('*/5 * * * *', async () => {
+  auctionJob = cron.schedule('*/5 * * * *', async () => {
     try {
       const now = new Date();
 
@@ -152,4 +155,15 @@ export function startCronJobs() {
       console.error('[CRON] Threshold promotion error:', error);
     }
   });
+}
+
+export function stopCronJobs() {
+  if (subscriptionJob) {
+    subscriptionJob.stop();
+    console.log('[CRON] Stopped subscription manager job');
+  }
+  if (auctionJob) {
+    auctionJob.stop();
+    console.log('[CRON] Stopped auction auto-close job');
+  }
 }

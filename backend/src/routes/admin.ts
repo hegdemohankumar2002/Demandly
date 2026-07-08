@@ -1,6 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { verifyAuth, requireRole } from '../middlewares/auth';
+import { validate } from '../middlewares/validation';
+import {
+  approveVerificationSchema,
+  updateDemandPoolStatusParamsSchema,
+  updateDemandPoolStatusBodySchema,
+  updateSettingsSchema,
+} from '../schemas/routes.schema';
 import { cacheGet } from '../cache/redis';
 import { resolveAuction } from '../utils/auction';
 
@@ -75,8 +82,8 @@ const approveHandler = async (req: Request, res: Response): Promise<any> => {
     return res.status(500).json({ error: 'Failed to approve' });
   }
 };
-router.post('/verifications/:id/approve', verifyAuth, approveHandler);
-router.put('/verifications/:id/approve', verifyAuth, approveHandler);
+router.post('/verifications/:id/approve', verifyAuth, validate(approveVerificationSchema, 'params'), approveHandler);
+router.put('/verifications/:id/approve', verifyAuth, validate(approveVerificationSchema, 'params'), approveHandler);
 
 // Reject a Manufacturer
 const rejectHandler = async (req: Request, res: Response): Promise<any> => {
@@ -183,7 +190,7 @@ router.get('/demand-pools', verifyAuth, async (req: Request, res: Response): Pro
 });
 
 // Update Demand Pool Status (admin can start auction, close, etc.)
-router.put('/demand-pools/:id', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.put('/demand-pools/:id', verifyAuth, validate(updateDemandPoolStatusParamsSchema, 'params'), validate(updateDemandPoolStatusBodySchema, 'body'), async (req: Request, res: Response): Promise<any> => {
   try {
     const { status } = req.body;
     const poolId = req.params.id as string;
@@ -296,7 +303,7 @@ router.get('/settings', verifyAuth, async (req: Request, res: Response): Promise
 });
 
 // Update Platform Settings
-router.put('/settings', verifyAuth, async (req: Request, res: Response): Promise<any> => {
+router.put('/settings', verifyAuth, validate(updateSettingsSchema, 'body'), async (req: Request, res: Response): Promise<any> => {
   try {
     const {
       platformName, currency, region,

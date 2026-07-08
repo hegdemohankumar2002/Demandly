@@ -14,17 +14,59 @@ import {
   CheckCircle, ArrowRight, ShieldAlert,
 } from 'lucide-react';
 
+interface AdminStats {
+  commissionEarned: number;
+  activeConsumers: number;
+  verifiedManufacturers: number;
+  pendingVerifications: number;
+}
+
+interface Verification {
+  id: string;
+  companyName?: string;
+  name: string;
+  email: string;
+  city?: string;
+  pincode?: string;
+  category?: string[];
+  certifications?: string[];
+  createdAt: string;
+}
+
+interface Auction {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    unit: string;
+    retailPrice: number;
+  };
+  geography: string;
+  pincode: string;
+  deadline: string;
+  status: string;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount: number;
+  totalDemand: number;
+}
+
 export default function AdminDashboard() {
   const { user, token } = useAuthStore();
   
-  const [stats, setStats] = React.useState<any>({ commissionEarned: 0, activeConsumers: 0, verifiedManufacturers: 0, pendingVerifications: 0 });
-  const [verifications, setVerifications] = React.useState<any[]>([]);
-  const [auctions, setAuctions] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<AdminStats>({ commissionEarned: 0, activeConsumers: 0, verifiedManufacturers: 0, pendingVerifications: 0 });
+  const [verifications, setVerifications] = React.useState<Verification[]>([]);
+  const [auctions, setAuctions] = React.useState<Auction[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!token) return;
+    let cancelled = false;
     const fetchData = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [statsRes, verifRes, auctRes] = await Promise.all([
@@ -32,16 +74,17 @@ export default function AdminDashboard() {
           fetch(`${API_URL}/admin/verifications/pending`, { headers }),
           fetch(`${API_URL}/consumer/demand-pools/active`)
         ]);
-        if (statsRes.ok) setStats(await statsRes.json());
-        if (verifRes.ok) setVerifications(await verifRes.json());
-        if (auctRes.ok) setAuctions(await auctRes.json());
+        if (statsRes.ok && !cancelled) setStats(await statsRes.json());
+        if (verifRes.ok && !cancelled) setVerifications(await verifRes.json());
+        if (auctRes.ok && !cancelled) setAuctions(await auctRes.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [token]);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading dashboard...</div>;
@@ -120,7 +163,7 @@ export default function AdminDashboard() {
                     <div>
                       <p className={styles.itemName}>{item.companyName}</p>
                       <p className={styles.itemMeta}>
-                        {item.city} · {item.type}
+                        {item.city} · {item.pincode}
                       </p>
                     </div>
                   </div>

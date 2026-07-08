@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from './pools.module.css';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -11,30 +11,53 @@ import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
 import { Layers, Play, Square, MapPin } from 'lucide-react';
 
+interface DemandPool {
+  id: string;
+  product?: { name: string };
+  geography: string;
+  pincode: string;
+  status: string;
+  totalDemand: number;
+  threshold: number;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount?: number;
+  bids?: unknown[];
+}
+
 export default function AdminDemandPoolsPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [pools, setPools] = useState<any[]>([]);
+  const [pools, setPools] = useState<DemandPool[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
 
-  useEffect(() => {
-    if (!token) { setLoading(false); return; }
-    const fetchPools = async () => {
-      try {
-        const res = await fetch(`${API_URL}/admin/demand-pools`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) setPools(await res.json());
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPools();
+  const fetchPools = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/admin/demand-pools`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) setPools(await res.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const doFetch = async () => {
+      await fetchPools();
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  }, [fetchPools]);
 
   const updateStatus = async (poolId: string, status: string) => {
     setUpdating(poolId);

@@ -9,33 +9,48 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
-import { Package, Truck, CheckCircle, MapPin, ArrowRight } from 'lucide-react';
+import { Package, CheckCircle, ArrowRight } from 'lucide-react';
 
 const statusSteps = ['confirmed', 'manufacturing', 'shipped', 'delivered'];
+
+interface FulfilmentOrder {
+  id: string;
+  product?: { name: string };
+  status: string;
+  quantity: number;
+  totalPrice: number;
+  estimatedDelivery: string;
+  trackingId?: string;
+}
 
 export default function FulfilmentPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<FulfilmentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchOrders = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/manufacturer/fulfilment`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setOrders(await res.json());
-      } catch (err) {
-        console.error(err);
+        if (res.ok && !cancelled) setOrders(await res.json());
+      } catch {
+        console.error('Failed to fetch orders');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchOrders();
+    return () => { cancelled = true; };
   }, [token]);
 
   const advanceStatus = async (orderId: string, currentStatus: string) => {

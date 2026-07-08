@@ -6,7 +6,6 @@ import styles from './dashboard.module.css';
 import Card, { CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import ProgressRing from '@/components/ui/ProgressRing';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
@@ -16,19 +15,65 @@ import {
   Package, ArrowRight, Bell, Clock,
 } from 'lucide-react';
 
+interface ManufacturerStats {
+  totalRevenue: number;
+  activeBids: number;
+  bidWinRate: number;
+  pendingOrders: number;
+  demandPoolsAvailable: number;
+}
+
+interface Bid {
+  id: string;
+  demandPoolId: string;
+  status: string;
+  pricePerUnit: number;
+  deliveryTimeline: string;
+  submittedAt: string;
+  demandPool: {
+    product: { name: string };
+    geography: string;
+    totalDemand: number;
+    bestBidPrice?: number;
+  };
+}
+
+interface DemandPool {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    unit: string;
+  };
+  geography: string;
+  pincode: string;
+  status: string;
+  totalDemand: number;
+  threshold: number;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount: number;
+  deadline: string;
+}
+
 export default function ManufacturerDashboard() {
   const { user, token } = useAuthStore();
   const { notifications } = useNotificationStore();
-  const unreadNotifs = notifications.filter((n) => !n.read);
+  // const unreadNotifs = notifications.filter((n) => !n.read);
 
-  const [stats, setStats] = React.useState<any>(null);
-  const [recentBids, setRecentBids] = React.useState<any[]>([]);
-  const [activePools, setActivePools] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<ManufacturerStats | null>(null);
+  const [recentBids, setRecentBids] = React.useState<Bid[]>([]);
+  const [activePools, setActivePools] = React.useState<DemandPool[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchData = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [statsRes, bidsRes, poolsRes] = await Promise.all([
@@ -36,16 +81,17 @@ export default function ManufacturerDashboard() {
           fetch(`${API_URL}/manufacturer/bids`, { headers }),
           fetch(`${API_URL}/manufacturer/demand-pools/active`, { headers }),
         ]);
-        if (statsRes.ok) setStats(await statsRes.json());
-        if (bidsRes.ok) setRecentBids(await bidsRes.json());
-        if (poolsRes.ok) setActivePools(await poolsRes.json());
+        if (statsRes.ok && !cancelled) setStats(await statsRes.json());
+        if (bidsRes.ok && !cancelled) setRecentBids(await bidsRes.json());
+        if (poolsRes.ok && !cancelled) setActivePools(await poolsRes.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [token]);
 
   if (loading) {

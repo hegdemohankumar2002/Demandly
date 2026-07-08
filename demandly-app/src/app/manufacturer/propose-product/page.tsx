@@ -9,19 +9,39 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/Toast';
 import { API_URL } from '@/lib/api';
 import { uploadFile } from '@/lib/upload';
-import { Package, Plus, Search, Tag, DollarSign, Scale, FileText, Image } from 'lucide-react';
+import { Package, Plus, Search, Tag, DollarSign, Scale, FileText, Image as ImageIcon } from 'lucide-react';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
+
+interface Proposal {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  proposedPrice: number;
+  unit: string;
+  status: string;
+  image?: string;
+  createdAt: string;
+}
+
+interface FormData {
+  name: string;
+  description: string;
+  category: string;
+  proposedPrice: string;
+  unit: string;
+}
 
 export default function ProposeProductPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
   
-  const [proposals, setProposals] = useState<any[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     category: 'Groceries',
@@ -30,14 +50,15 @@ export default function ProposeProductPage() {
   });
 
   const fetchProposals = async () => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/manufacturer/proposals`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) {
-        setProposals(await res.json());
-      }
+      if (res.ok) setProposals(await res.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -46,7 +67,25 @@ export default function ProposeProductPage() {
   };
 
   useEffect(() => {
-    fetchProposals();
+    let cancelled = false;
+    const doFetch = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/manufacturer/proposals`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok && !cancelled) setProposals(await res.json());
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    doFetch();
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -192,7 +231,7 @@ export default function ProposeProductPage() {
                 <div className={styles.field}>
                   <label className="label">Product Image</label>
                   <div className={styles.inputWrapper}>
-                    <Image size={18} className={styles.inputIcon} />
+                    <ImageIcon size={18} className={styles.inputIcon} />
                     <input 
                       type="file" 
                       accept="image/*"

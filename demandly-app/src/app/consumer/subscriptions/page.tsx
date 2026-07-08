@@ -9,30 +9,48 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
-import { RefreshCw, Package, Calendar, Pause, Play, X, Truck } from 'lucide-react';
+import { RefreshCw, Package, Pause, Play, X, Truck } from 'lucide-react';
+
+interface Subscription {
+  id: string;
+  product?: { name: string; unit: string };
+  manufacturer?: { companyName: string; name: string };
+  monthlyQuantity: number;
+  pricePerMonth: number;
+  retailPricePerMonth: number;
+  status: string;
+  deliveriesCompleted: number;
+  totalDeliveries: number;
+  nextDelivery: string;
+}
 
 export default function SubscriptionsPage() {
   const { token } = useAuthStore();
   const { addToast } = useToast();
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    let cancelled = false;
     const fetchSubs = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/consumer/subscriptions`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setSubscriptions(await res.json());
-      } catch (err) {
-        console.error(err);
+        if (res.ok && !cancelled) setSubscriptions(await res.json());
+      } catch {
+        console.error('Failed to fetch subscriptions');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchSubs();
+    return () => { cancelled = true; };
   }, [token]);
 
   const updateStatus = async (id: string, status: string) => {

@@ -1,43 +1,67 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from './interests.module.css';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import ProgressRing from '@/components/ui/ProgressRing';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency, getStatusLabel } from '@/lib/utils';
 import { API_URL } from '@/lib/api';
-import { Heart, Package, ExternalLink, X, Filter } from 'lucide-react';
+import { Heart, Package, ExternalLink, X } from 'lucide-react';
 
 const statusFilters = ['All', 'pending', 'threshold_met', 'auction_active', 'fulfilled', 'cancelled'];
+
+interface Interest {
+  id: string;
+  productId: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    image: string;
+    retailPrice: number;
+    amazonPrice?: number;
+    flipkartPrice?: number;
+    demandCount: number;
+    demandThreshold: number;
+    unit: string;
+    tags: string[];
+  };
+  quantity: number;
+  maxPrice: number;
+  timeline: string;
+  status: string;
+  createdAt: string;
+}
 
 export default function InterestsPage() {
   const { token } = useAuthStore();
   const [filter, setFilter] = useState('All');
-  const [fetchedInterests, setFetchedInterests] = useState<any[]>([]);
+  const [fetchedInterests, setFetchedInterests] = useState<Interest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    let cancelled = false;
     const fetchInterests = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/consumer/interests`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) setFetchedInterests(await res.json());
+        if (res.ok && !cancelled) setFetchedInterests(await res.json());
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchInterests();
+    return () => { cancelled = true; };
   }, [token]);
 
   const interests = filter === 'All'

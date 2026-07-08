@@ -17,23 +17,82 @@ import {
   Package, ArrowRight, Bell, Zap, ShoppingBag,
 } from 'lucide-react';
 
+interface ConsumerStats {
+  totalSavings: number;
+  savingsPercentage: number;
+  activeInterests: number;
+  activeAuctions: number;
+  activeSubscriptions: number;
+}
+
+interface Interest {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    image: string;
+    retailPrice: number;
+    amazonPrice?: number;
+    flipkartPrice?: number;
+    unit: string;
+    demandCount: number;
+    demandThreshold: number;
+  };
+  quantity: number;
+  maxPrice: number;
+  status: string;
+  createdAt: string;
+}
+
+interface Auction {
+  id: string;
+  product: {
+    id: string;
+    name: string;
+    category: string;
+    unit: string;
+    retailPrice: number;
+  };
+  geography: string;
+  pincode: string;
+  deadline: string;
+  status: string;
+  averageMaxPrice: number;
+  bestBidPrice?: number;
+  bidsCount: number;
+  totalDemand: number;
+}
+
+interface Order {
+  id: string;
+  product: {
+    name: string;
+    image: string;
+  };
+  totalPrice: number;
+  status: string;
+  estimatedDelivery: string;
+}
+
 export default function ConsumerDashboard() {
   const { user, token } = useAuthStore();
   const { notifications, markAsRead } = useNotificationStore();
   const unreadNotifs = notifications.filter((n) => !n.read);
 
-  const [stats, setStats] = React.useState<any>({ totalSaved: 0, savingsPercentage: 0, activeInterests: 0, activeAuctions: 0, activeSubscriptions: 0 });
-  const [interests, setInterests] = React.useState<any[]>([]);
-  const [auctions, setAuctions] = React.useState<any[]>([]);
-  const [orders, setOrders] = React.useState<any[]>([]);
+  const [stats, setStats] = React.useState<ConsumerStats>({ totalSavings: 0, savingsPercentage: 0, activeInterests: 0, activeAuctions: 0, activeSubscriptions: 0 });
+  const [interests, setInterests] = React.useState<Interest[]>([]);
+  const [auctions, setAuctions] = React.useState<Auction[]>([]);
+  const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
     const fetchData = async () => {
+      if (!token) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       try {
         const headers = { Authorization: `Bearer ${token}` };
         const [statsRes, intRes, auctRes, ordersRes] = await Promise.all([
@@ -42,12 +101,12 @@ export default function ConsumerDashboard() {
           fetch(`${API_URL}/consumer/demand-pools/active`, { headers }),
           fetch(`${API_URL}/consumer/orders`, { headers })
         ]);
-        if (statsRes.ok) setStats(await statsRes.json());
-        if (intRes.ok) setInterests(await intRes.json());
-        if (auctRes.ok) setAuctions(await auctRes.json());
-        if (ordersRes.ok) {
+        if (statsRes.ok && !cancelled) setStats(await statsRes.json());
+        if (intRes.ok && !cancelled) setInterests(await intRes.json());
+        if (auctRes.ok && !cancelled) setAuctions(await auctRes.json());
+        if (ordersRes.ok && !cancelled) {
           const ordersData = await ordersRes.json();
-          const mappedOrders = (ordersData.interests || []).map((i: any) => ({
+          const mappedOrders = (ordersData.interests || []).map((i: Interest) => ({
             id: i.id,
             product: i.product,
             totalPrice: i.maxPrice * i.quantity,
@@ -58,10 +117,11 @@ export default function ConsumerDashboard() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [token]);
 
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading dashboard...</div>;

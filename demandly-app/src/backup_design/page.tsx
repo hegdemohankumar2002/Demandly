@@ -16,9 +16,24 @@ import {
   Package, BarChart3, Heart,
 } from 'lucide-react';
 
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  retailPrice: number;
+  demandCount: number;
+  demandThreshold: number;
+}
+
+interface LandingData {
+  products: Product[];
+  flashEvents: Array<{ currentUnits: number }>;
+  stats: { totalSaved: number; activeConsumers: number };
+}
+
 export default function LandingPage() {
   const [tickerIndex, setTickerIndex] = useState(0);
-  const [data, setData] = useState<any>({ products: [], flashEvents: [{ currentUnits: 0 }], stats: { totalSaved: 0, activeConsumers: 0 } });
+  const [data, setData] = useState<LandingData>({ products: [], flashEvents: [{ currentUnits: 0 }], stats: { totalSaved: 0, activeConsumers: 0 } });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -184,7 +199,7 @@ export default function LandingPage() {
           </div>
 
           <div className={styles.productGrid}>
-            {data.products.slice(0, 6).map((product: any) => (
+            {data.products.slice(0, 6).map((product: Product) => (
               <Link href={`/consumer/products/${product.id}`} key={product.id} className={styles.productCardLink}>
                 <Card variant="glass" padding="none" className={styles.productCard}>
                   <div className={styles.productImage}>

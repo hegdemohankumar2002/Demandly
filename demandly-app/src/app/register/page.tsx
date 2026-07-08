@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import styles from './register.module.css';
 import Button from '@/components/ui/Button';
@@ -204,7 +205,7 @@ export default function RegisterPage() {
       <div className={styles.left}>
         <div className={styles.leftContent}>
           <Link href="/" className={styles.logo}>
-            <img src="/logo.png" alt="Demandly Logo" className={styles.logoImage} />
+            <Image src="/logo.png" alt="Demandly Logo" className={styles.logoImage} width={120} height={32} priority />
             <span className={styles.logoText}>Demandly</span>
           </Link>
           <h1 className={styles.leftTitle}>
